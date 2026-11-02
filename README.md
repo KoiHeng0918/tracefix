@@ -1,70 +1,123 @@
 # TraceFix — Java 报错诊断与案例库
 
-把一条真实 Java 报错，变成一张有证据、可人工确认、可沉淀复用的诊断记录。
+TraceFix 是一个面向 Java 开发者的报错诊断系统：粘贴真实报错后，系统解析堆栈、从结构化案例库中检索相似问题，生成带证据的诊断（原因、排查、修复、验证），并由人工确认修复是否有效。确认有效的案例回流到案例库，形成可复用的数据资产。
 
-> 项目原名 DevQA，v2 起改名 TraceFix；GitHub 仓库和本地目录可后续改为 `tracefix/`。
+> 当前阶段：P0 的 Java 骨架、数据库模型、案例导入/查询接口已完成；诊断链路、Python AI 服务和评测体系正在开发。
 
-**当前定位**：只做报错诊断，不做通用 Java 问答、不自动改代码、不自动关闭问题。
-**当前阶段**：Java 主服务骨架和文档录入已完成；诊断、案例库、评测尚未实现。项目方向已从 v1 的“通用问答 + RAG”收敛到“报错诊断 + 人工确认 + 案例回流”。
+## 解决什么问题
 
-## 技术栈
+Java 报错排查通常有三个痛点：
 
-- Java 主服务：Spring Boot 4.1.2、MyBatis-Plus 3.5.18.1
-- 数据：MySQL（业务数据）、Redis（缓存/限流）、RabbitMQ（批量导入/索引重建等异步任务）
-- Python AI 子服务：FastAPI、FAISS、DeepSeek、通义 text-embedding-v3
-- 前端：单文件 HTML + JS，放 Java 的 static 目录同源部署
-- 评测：Python 脚本 + 黄金集 + CI（规划中）
+1. 堆栈很长，新手不知道哪一行才是自己的代码。
+2. 通用大模型的回答看起来合理，但缺少证据，无法确认是否适用于当前版本和框架。
+3. 问题解决后经验留在聊天记录里，同类报错下次还要重新查。
 
-LangGraph 暂不使用。当前诊断链路用普通 Service 就能讲清，先不引入多节点编排。
+TraceFix 把“报错—原因—修复—验证”整理成结构化案例，让诊断有证据、可确认、可复用。
 
-## 核心闭环（目标）
+## 核心流程
 
-```
+```text
 提交报错
   → 解析异常类型 / 消息 / 堆栈帧 / 指纹
-  → 从案例库找相似案例（精确匹配 + 语义检索）
-  → AI 输出结构化诊断：原因 / 排查 / 修复 / 验证 / 引用
+  → 从案例库检索相似案例（精确匹配 + 语义检索）
+  → 生成结构化诊断：原因 / 排查 / 修复 / 验证 / 引用
   → 人工确认：原因对不对、修好没有
   → 修好：沉淀为新案例；没修好：转人工 / 记为负例
 ```
 
-目前完成了 Java 骨架、文档录入、案例库的导入/查询接口（Postman 已验证）；诊断链路尚未实现。
+## 功能状态
 
-## 项目进度
+| 模块 | 状态 | 说明 |
+|---|---|---|
+| 文档录入 | 已实现 | `POST /doc/upload`，P1 原始资料 |
+| 案例库 | 已实现 | 结构化报错案例，支持导入和查询 |
+| 诊断记录 | 数据模型已建 | 记录输入、AI 诊断、人工确认和状态流转 |
+| 报错诊断 | 开发中 | 解析、检索、结构化输出、引用校验 |
+| 黄金评测集 | 规划中 | 60 条真实场景，dev/test/holdout 拆分 |
+| 前端页面 | 规划中 | 单页 HTML，提交报错 + 查看诊断 + 确认结果 |
+| LangGraph 编排 | P1 规划 | 诊断状态图、条件分支、重试和人工中断 |
 
-- [x] 2026-11-01：调通 DeepSeek API（curl 返回正常）
-- [x] 2026-11-01：初始化仓库，创建知识库目录结构（data/01-11）
-- [x] 2026-11-01：Java 主服务骨架，MySQL/Redis/RabbitMQ 连通，health 接口验证通过
-- [x] 2026-11-02：文档录入接口（DTO 校验 → Service 落库 PENDING），第一条文档真实写入
-- [x] 2026-11-02：方向收敛为“报错诊断 + 人工确认 + 案例回流”，重写 PRD 与协作指南
-- [x] 2026-11-02：项目改名 TraceFix，Java 包名改为 `com.tracefix`，Maven artifact 改为 `tracefix-server`
-- [x] 2026-11-02：清理 v1 的 `qa_question_log` 表定义、实体和 Mapper；`qa_document` 保留为 P1 原始资料
-- [x] 2026-11-02：`schema.sql` 已包含 v2 三张表：`qa_document`、`qa_error_case`、`qa_diagnosis_ticket`
-- [x] 2026-11-02：按 `reset_v2.sql` + `schema.sql` 重建 `tracefix` 库
-- [x] 2026-11-02：`QaErrorCase`、`QaDiagnosisTicket` 实体和 Mapper 编译通过
-- [x] 2026-11-02：`POST /case/import`、`GET /case/list` 已通过 Postman 测试
-- [ ] 下一步：整理 5 条真实报错案例并导入
-- [ ] 下一步：写诊断记录创建 + Mock AI 诊断
-- [ ] 后续：整理 20 条真实报错案例 + 20 条黄金评测用例
-- [ ] 下一步：Python 服务 MVP（解析 + 指纹 + 检索 + 结构化诊断 + abstain）
-- [ ] 下一步：诊断记录状态流转 + 人工确认 + 最小页面
-- [ ] 后续：60 条黄金集、CI 评测、部署上线
+## 技术架构
 
-## 目录结构
-
+```text
+浏览器（单页 HTML）
+   │ HTTP
+Java 主服务（Spring Boot + MyBatis-Plus）
+   │  ├─ 案例/诊断记录/人工确认（MySQL）
+   │  ├─ 输入校验、缓存、限流（Redis）
+   │  └─ HTTP 调用 Python AI 服务
+   │
+Python AI 服务（FastAPI）
+   ├─ 堆栈解析 / 指纹
+   ├─ 混合检索（FAISS + 全文 + 元数据）
+   ├─ 结构化诊断生成
+   └─ 引用校验 / 置信度判断
+   │
+MySQL（事实来源） ── FAISS（派生索引，可重建）
+   │
+RabbitMQ（批量导入、索引重建、评测任务）
 ```
+
+Java 负责工程化与业务状态，Python 负责解析、检索和模型调用；MySQL 是事实来源，FAISS 索引可随时重建。
+
+## 技术栈
+
+- Java 主服务：Spring Boot 4.1.2、MyBatis-Plus 3.5.18.1
+- 数据：MySQL、Redis、RabbitMQ
+- Python AI 服务：FastAPI、FAISS、DeepSeek、通义 text-embedding-v3
+- 诊断编排：LangGraph（P1，用于条件分支、重试和人工中断）
+- 前端：单文件 HTML + JS，同源部署
+- 评测：Python 脚本 + 黄金集 + CI（规划中）
+
+## 数据模型
+
+三张核心表：
+
+| 表 | 作用 |
+|---|---|
+| `qa_document` | 原始资料/长文档，P1 使用 |
+| `qa_error_case` | 结构化报错案例：异常类型、根因、修复步骤、验证方式、来源 |
+| `qa_diagnosis_ticket` | 每次诊断的记录：输入、AI 诊断、置信度、人工确认、处理状态 |
+
+案例库与诊断记录通过 `matched_case_ids` 和 `source_ticket_id` 逻辑关联，不建物理外键，避免高写入日志表被外键约束拖慢。
+
+## API
+
+| 方法 | 路径 | 状态 | 说明 |
+|---|---|---|---|
+| GET | `/api/health` | 已实现 | 健康检查 |
+| POST | `/doc/upload` | 已实现 | 文档录入（P1） |
+| POST | `/case/import` | 已实现 | 导入一条案例 |
+| GET | `/case/list` | 已实现 | 查询案例列表 |
+| POST | `/diagnosis/analyze` | 规划中 | 提交报错并诊断 |
+| POST | `/diagnosis/confirm` | 规划中 | 人工确认根因/修复效果 |
+
+## 快速开始
+
+环境要求：JDK 17、Maven、MySQL 8。
+
+1. 创建 `tracefix` 数据库，执行 `server/sql/schema.sql`。
+2. 复制 `server/src/main/resources/application-example.yml` 为 `application.yml`，填入本地数据库/Redis/RabbitMQ 配置。
+3. 启动 `TraceFixApplication`。
+4. 访问 `GET /api/health`，返回 `ok` 即启动成功。
+
+开发环境数据库通过 SSH 隧道访问，真实密码不进入仓库。
+
+## 项目结构
+
+```text
 tracefix/
-├── data/                    知识库原始资料（11-errors 是诊断主线的重点）
+├── data/                    知识库原始资料
 ├── docs/
-│   └── PRD.md               产品需求说明书 v2.0
+│   └── PRD.md               产品需求说明书
 ├── server/
 │   ├── sql/
-│   │   ├── schema.sql       v2 三张表：qa_document / qa_error_case / qa_diagnosis_ticket
-│   │   └── reset_v2.sql     重建 tracefix 库（会删除旧库，需手动执行）
+│   │   ├── schema.sql       三张核心表
+│   │   └── reset_v2.sql     本地重建库脚本
 │   └── src/main/java/com/tracefix/
 │       ├── common/          统一返回结构
 │       ├── config/          MyBatis-Plus 配置
-│       ├── controller/      health + 文档录入
+│       ├── controller/      健康检查、文档、案例接口
 │       ├── dto/             请求参数
 │       ├── entity/          实体
 │       ├── mapper/          Mapper
@@ -72,48 +125,51 @@ tracefix/
 └── README.md
 ```
 
-> 本地目录当前仍叫 `devqa/`，GitHub 仓库名也可以先不改；代码包名已经是 `com.tracefix`。
+## Roadmap
 
-## 知识库目录
+### P0：先跑通案例库和诊断数据模型
 
-```
-data/
-├── 01-spring/          Spring / SpringBoot 笔记
-├── 02-ssm-mybatis/     MyBatis / SSM 整合
-├── 03-microservices/   Spring Cloud / Nacos
-├── 04-redis/           Redis 数据结构 / 缓存 / 分布式锁
-├── 05-rabbitmq/        交换机模型 / 可靠投递 / 死信
-├── 06-mysql/           索引 / 事务 / 锁 / 优化
-├── 07-jvm/             内存 / GC / 类加载
-├── 08-concurrency/     JUC / 线程池 / AQS
-├── 09-network/         TCP / HTTP
-├── 10-interview/       高频面试题
-└── 11-errors/          经典报错与排查（诊断主线的核心素材）
-```
+- Java 骨架、MySQL/Redis/RabbitMQ 连通
+- 案例表、诊断记录表
+- 案例导入/查询接口
+- 5–20 条真实报错案例
+- 诊断记录创建 + Mock AI 诊断
 
-> 当前 P0 只做 `11-errors` 相关的结构化案例；其他目录是后续资料，不是第一优先级。
+### P1：接入真实诊断链路
 
-## 配置说明
+- Python FastAPI 服务
+- 堆栈解析、指纹、混合检索
+- DeepSeek 结构化诊断 + 引用校验
+- LangGraph 诊断编排：
+  - 证据充分性判断
+  - 信息不足时追问
+  - 引用校验失败时重试/降级
+  - 人工中断和升级
+- 诊断记录状态流转 + 人工确认
+- 最小前端页面
 
-含真实密码的 `application.yml` 不入库（见 `.gitignore`）；新环境复制 `application-example.yml` 为 `application.yml` 后填入自己的连接信息。数据库开发通过 SSH 隧道访问，3306/6379 不对公网暴露。
+### P2：把效果做成可证明的
 
-## 数据库说明
+- 60 条黄金评测集，dev/test/holdout 拆分
+- 检索指标：Recall@5、MRR
+- 诊断指标：根因准确率、引用正确率、答案忠实度、abstain 准确率
+- CI 分层回归
+- 部署上线
 
-- `qa_document`：P1 原始资料表，当前保留；`/doc/upload` 仍可用。
-- `qa_question_log`：v1 问答日志，已从代码和 `schema.sql` 删除，旧库已随重建脚本清理。
-- `qa_error_case` / `qa_diagnosis_ticket`：v2 核心表，已建表；对应实体和 Mapper 已新增，接口还没写。
-- 数据库重建：先备份旧库，再执行 `server/sql/reset_v2.sql` 创建 `tracefix` 库，最后执行 `server/sql/schema.sql`。
+## 设计取舍
 
-## 踩坑记录
+**为什么只做报错诊断，不做通用问答？**
+通用 Java 问答容易被通用大模型替代；报错诊断有具体输入、可验证结果、可沉淀案例，更适合做成一个有数据资产的项目。
 
-1. **Maven 依赖下载卡死**：默认中央仓库在当前网络下不可用 → 配置 `~/.m2/settings.xml` 使用阿里云镜像解决。
-2. **数据库公网连不上（10060 超时）**：数据库只监听内部回环地址 → 改用 SSH 隧道（本地 13306/16379 转发到服务器内部），同时避免端口暴露公网。
-3. **PaginationInnerInterceptor 找不到类**：MyBatis-Plus 3.5.9 起将依赖 JSqlParser 的分页插件拆分为独立模块，starter 默认不引入 → 手动添加 `mybatis-plus-jsqlparser` 依赖。
-4. **命令行 Maven 用错 JDK**：系统默认 JDK8，命令行需指定 JDK17 的 `JAVA_HOME`；IDEA 的红线以 `mvn compile` 结果为准。
+**为什么检索是证据层，不是产品本身？**
+诊断需要引用历史案例，不能只靠模型记忆；但检索只是“找证据”。指纹精确命中时可以直接返回案例，没有证据时必须明确说信息不足，而不是硬答。
 
-## 下一步
+**为什么 P0 先用线性 Service，P1 再上 LangGraph？**
+P0 的链路是线性的，用普通 Service 更容易验证和讲清。P1 出现真实条件分支后，再用 LangGraph 编排“证据不足追问、引用校验重试、人工中断”等状态，避免为了框架而框架。
 
-1. 整理 5 条真实报错案例，用 `/case/import` 导入，`/case/list` 能查到。
-2. 写诊断记录创建接口，先用固定 JSON 模拟 AI 诊断，跑通 `qa_diagnosis_ticket`。
-3. 写 Python 诊断 MVP，先用固定 JSON 跑通 Java ↔ Python 链路，再接真实检索和模型。
-4. 做人工确认和最小页面，跑通一条完整闭环；再补黄金集和 CI。
+## 开发记录
+
+- Maven 中央仓库不可用 → 配置阿里云镜像。
+- 数据库公网连接超时 → 使用 SSH 隧道访问。
+- MyBatis-Plus 3.5.9+ 分页插件拆分 → 手动引入 `mybatis-plus-jsqlparser`。
+- 命令行 Maven 需指定 JDK 17 的 `JAVA_HOME`。
