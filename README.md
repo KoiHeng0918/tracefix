@@ -42,8 +42,9 @@ LangGraph 暂不使用。当前诊断链路用普通 Service 就能讲清，先�
 - [x] 2026-11-02：`schema.sql` 已包含 v2 三张表：`qa_document`、`qa_error_case`、`qa_diagnosis_ticket`
 - [x] 2026-11-02：按 `reset_v2.sql` + `schema.sql` 重建 `tracefix` 库
 - [ ] 进行中：`QaErrorCase`、`QaDiagnosisTicket` 实体和 Mapper 已写入，待 IDEA 编译验证
-- [ ] 下一步：在 IDEA 里 Build，确认实体/Mapper 编译通过
-- [ ] 下一步：写 `/case/import`、`/case/list`，跑通案例入库和查询
+- [ ] 进行中：`POST /case/import`、`GET /case/list` 已写入，待编译和接口验证
+- [ ] 下一步：在 IDEA 里 Build，确认实体/Mapper/接口编译通过
+- [ ] 下一步：用 curl 导入 1 条案例并查询列表
 - [ ] 下一步：整理 20 条真实报错案例 + 20 条黄金评测用例
 - [ ] 下一步：Python 服务 MVP（解析 + 指纹 + 检索 + 结构化诊断 + abstain）
 - [ ] 下一步：诊断记录状态流转 + 人工确认 + 最小页面
