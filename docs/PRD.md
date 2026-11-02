@@ -780,7 +780,7 @@ RabbitMQ（批量导入/索引重建/评测任务/失败重试）
 
 > 目标模型；`schema.sql` 已包含 `qa_document`、`qa_error_case`、`qa_diagnosis_ticket` 三张表。实际数据库尚未重建，重建步骤见 `server/sql/reset_v2.sql`；迁移前不要按本文档直接改生产数据。
 >
-> 当前实现状态（2026-11-02）：项目改名为 TraceFix，Java 包名 `com.tracefix`；Java 骨架 + `/doc/upload` 已完成；v1 `qa_question_log` 的实体/Mapper/表定义已清理；两张新表的实体/Mapper/接口、诊断和评测尚未实现。
+> 当前实现状态（2026-11-02）：项目改名为 TraceFix，Java 包名 `com.tracefix`；Java 骨架 + `/doc/upload` 已完成；数据库已按 `reset_v2.sql` + `schema.sql` 重建；`QaErrorCase` / `QaDiagnosisTicket` 实体和 Mapper 已新增（待编译验证）；案例接口、诊断和评测尚未实现。
 
 ### 11.1 表关系
 
@@ -792,7 +792,7 @@ qa_document（原始资料，P1）  ──可生成──>  qa_error_case
 - `qa_error_case`：结构化案例，检索语料。
 - `qa_diagnosis_ticket`：诊断工单，承载输入、诊断结果、人工确认、状态。
 - `qa_document`：原始长文档/资料，P1 使用；不作为 P0 检索源。
-- `qa_question_log`：v1 问答日志；实体/Mapper/表定义已在 v2 清理中删除；实际库删除见 `server/sql/migration_v2_cleanup.sql`。
+- `qa_question_log`：v1 问答日志；实体/Mapper/表定义已在 v2 清理中删除，旧库已随 `reset_v2.sql` 重建。
 
 ### 11.2 `qa_error_case`
 
@@ -879,7 +879,7 @@ qa_document（原始资料，P1）  ──可生成──>  qa_error_case
 1. 备份旧库，执行 `server/sql/reset_v2.sql` 创建 `tracefix` 库，再执行 `server/sql/schema.sql` 建三张表。
 2. 为 `qa_error_case`、`qa_diagnosis_ticket` 写实体和 Mapper。
 3. 导入 30–50 条案例卡（先人工整理，不跑自动抓取）。
-4. 清理 `qa_question_log`：代码/实体/Mapper/schema 已删除；实际库如需单独清理，先备份，再执行 `server/sql/migration_v2_cleanup.sql`。
+4. 清理 `qa_question_log`：代码/实体/Mapper/schema 已删除，旧库已随 `reset_v2.sql` 重建，不再需要单独清理脚本。
 5. 更新 Service/Controller；`DocumentServiceImpl` 的 MQ 发送暂时不做，不阻塞诊断主线。
 6. 重建 FAISS 索引，验证检索。
 7. 跑 L1 检索评测，记录基线。

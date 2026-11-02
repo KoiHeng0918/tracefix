@@ -28,7 +28,7 @@ LangGraph 暂不使用。当前诊断链路用普通 Service 就能讲清，先�
   → 修好：沉淀为新案例；没修好：转人工 / 记为负例
 ```
 
-目前只完成了最左侧的 Java 骨架和文档录入，诊断链路尚未实现。
+目前只完成了 Java 骨架、文档录入和案例/诊断两张表的实体骨架，诊断链路尚未实现。
 
 ## 项目进度
 
@@ -40,8 +40,10 @@ LangGraph 暂不使用。当前诊断链路用普通 Service 就能讲清，先�
 - [x] 2026-11-02：项目改名 TraceFix，Java 包名改为 `com.tracefix`，Maven artifact 改为 `tracefix-server`
 - [x] 2026-11-02：清理 v1 的 `qa_question_log` 表定义、实体和 Mapper；`qa_document` 保留为 P1 原始资料
 - [x] 2026-11-02：`schema.sql` 已包含 v2 三张表：`qa_document`、`qa_error_case`、`qa_diagnosis_ticket`
-- [ ] 下一步：备份旧库，执行 `server/sql/reset_v2.sql` + `server/sql/schema.sql`，重建 `tracefix` 库
-- [ ] 下一步：为 `qa_error_case`、`qa_diagnosis_ticket` 写实体和 Mapper
+- [x] 2026-11-02：按 `reset_v2.sql` + `schema.sql` 重建 `tracefix` 库
+- [ ] 进行中：`QaErrorCase`、`QaDiagnosisTicket` 实体和 Mapper 已写入，待 IDEA 编译验证
+- [ ] 下一步：在 IDEA 里 Build，确认实体/Mapper 编译通过
+- [ ] 下一步：写 `/case/import`、`/case/list`，跑通案例入库和查询
 - [ ] 下一步：整理 20 条真实报错案例 + 20 条黄金评测用例
 - [ ] 下一步：Python 服务 MVP（解析 + 指纹 + 检索 + 结构化诊断 + abstain）
 - [ ] 下一步：诊断记录状态流转 + 人工确认 + 最小页面
@@ -57,8 +59,7 @@ tracefix/
 ├── server/
 │   ├── sql/
 │   │   ├── schema.sql       v2 三张表：qa_document / qa_error_case / qa_diagnosis_ticket
-│   │   ├── reset_v2.sql     重建 tracefix 库（会删除旧库，需手动执行）
-│   │   └── migration_v2_cleanup.sql  只删 qa_question_log 的可选脚本
+│   │   └── reset_v2.sql     重建 tracefix 库（会删除旧库，需手动执行）
 │   └── src/main/java/com/tracefix/
 │       ├── common/          统一返回结构
 │       ├── config/          MyBatis-Plus 配置
@@ -98,9 +99,9 @@ data/
 ## 数据库说明
 
 - `qa_document`：P1 原始资料表，当前保留；`/doc/upload` 仍可用。
-- `qa_question_log`：v1 问答日志，已从代码和 `schema.sql` 删除；实际库如需清理，先备份，再执行 `server/sql/migration_v2_cleanup.sql`。
-- `qa_error_case` / `qa_diagnosis_ticket`：v2 目标表，建表语句已写入 `schema.sql`；实际数据库尚未重建，对应实体和接口还没写。
-- 重建数据库：先备份旧库，再执行 `server/sql/reset_v2.sql` 创建 `tracefix` 库，最后执行 `server/sql/schema.sql`。
+- `qa_question_log`：v1 问答日志，已从代码和 `schema.sql` 删除，旧库已随重建脚本清理。
+- `qa_error_case` / `qa_diagnosis_ticket`：v2 核心表，已建表；对应实体和 Mapper 已新增，接口还没写。
+- 数据库重建：先备份旧库，再执行 `server/sql/reset_v2.sql` 创建 `tracefix` 库，最后执行 `server/sql/schema.sql`。
 
 ## 踩坑记录
 
@@ -111,8 +112,8 @@ data/
 
 ## 下一步
 
-1. 备份旧库，执行 `server/sql/reset_v2.sql` + `server/sql/schema.sql`，创建 `tracefix` 库。
-2. 为 `qa_error_case`、`qa_diagnosis_ticket` 写实体和 Mapper。
+1. 在 IDEA 里 Maven 刷新 + Build，确认 `QaErrorCase`、`QaDiagnosisTicket` 实体和 Mapper 编译通过。
+2. 写 `/case/import`、`/case/list`，跑通案例入库和查询。
 3. 整理 20 条真实报错案例，先跑通案例入库和查询。
 4. 写 Python 诊断 MVP，先用固定 JSON 跑通 Java ↔ Python 链路，再接真实检索和模型。
 5. 做人工确认和最小页面，跑通一条完整闭环；再补黄金集和 CI。
