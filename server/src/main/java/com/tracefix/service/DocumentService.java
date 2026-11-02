@@ -1,6 +1,6 @@
-package com.devqa.devqaserver.service;
+package com.tracefix.service;
 
-import com.devqa.devqaserver.dto.DocumentCreateDTO;
+import com.tracefix.dto.DocumentCreateDTO;
 
 
 

@@ -1,4 +1,4 @@
-package com.devqa.devqaserver.entity;
+package com.tracefix.entity;
 
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableId;

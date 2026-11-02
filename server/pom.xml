@@ -8,11 +8,11 @@
 		<version>4.1.2</version>
 		<relativePath/> <!-- lookup parent from repository -->
 	</parent>
-	<groupId>com.devqa</groupId>
-	<artifactId>devqa-server</artifactId>
+	<groupId>com.tracefix</groupId>
+	<artifactId>tracefix-server</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
-	<name>devqa-server</name>
-	<description>my devqa-server</description>
+	<name>tracefix-server</name>
+	<description>TraceFix server</description>
 	<url/>
 	<licenses>
 		<license/>

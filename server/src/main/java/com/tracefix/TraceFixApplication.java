@@ -1,15 +1,15 @@
-package com.devqa.devqaserver;
+package com.tracefix;
 
 import org.mybatis.spring.annotation.MapperScan;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 @SpringBootApplication
-@MapperScan("com.devqa.devqaserver.mapper")
-public class DevqaServerApplication {
+@MapperScan("com.tracefix.mapper")
+public class TraceFixApplication {
 
 	public static void main(String[] args) {
-		SpringApplication.run(DevqaServerApplication.class, args);
+		SpringApplication.run(TraceFixApplication.class, args);
 	}
 
 }

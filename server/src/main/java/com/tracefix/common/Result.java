@@ -1,4 +1,4 @@
-package com.devqa.devqaserver.common;
+package com.tracefix.common;
 
 import lombok.Data;
 

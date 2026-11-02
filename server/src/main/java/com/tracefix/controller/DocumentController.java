@@ -1,8 +1,8 @@
-package com.devqa.devqaserver.controller;
+package com.tracefix.controller;
 
-import com.devqa.devqaserver.common.Result;
-import com.devqa.devqaserver.dto.DocumentCreateDTO;
-import com.devqa.devqaserver.service.DocumentService;
+import com.tracefix.common.Result;
+import com.tracefix.dto.DocumentCreateDTO;
+import com.tracefix.service.DocumentService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;

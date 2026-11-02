@@ -1,4 +1,4 @@
-package com.devqa.devqaserver.dto;
+package com.tracefix.dto;
 
 
 import jakarta.validation.constraints.NotBlank;
