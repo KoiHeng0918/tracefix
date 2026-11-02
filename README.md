@@ -28,7 +28,7 @@ LangGraph 暂不使用。当前诊断链路用普通 Service 就能讲清，先�
   → 修好：沉淀为新案例；没修好：转人工 / 记为负例
 ```
 
-目前只完成了 Java 骨架、文档录入和案例/诊断两张表的实体骨架，诊断链路尚未实现。
+目前完成了 Java 骨架、文档录入、案例库的导入/查询接口（Postman 已验证）；诊断链路尚未实现。
 
 ## 项目进度
 
@@ -41,11 +41,11 @@ LangGraph 暂不使用。当前诊断链路用普通 Service 就能讲清，先�
 - [x] 2026-11-02：清理 v1 的 `qa_question_log` 表定义、实体和 Mapper；`qa_document` 保留为 P1 原始资料
 - [x] 2026-11-02：`schema.sql` 已包含 v2 三张表：`qa_document`、`qa_error_case`、`qa_diagnosis_ticket`
 - [x] 2026-11-02：按 `reset_v2.sql` + `schema.sql` 重建 `tracefix` 库
-- [ ] 进行中：`QaErrorCase`、`QaDiagnosisTicket` 实体和 Mapper 已写入，待 IDEA 编译验证
-- [ ] 进行中：`POST /case/import`、`GET /case/list` 已写入，待编译和接口验证
-- [ ] 下一步：在 IDEA 里 Build，确认实体/Mapper/接口编译通过
-- [ ] 下一步：用 curl 导入 1 条案例并查询列表
-- [ ] 下一步：整理 20 条真实报错案例 + 20 条黄金评测用例
+- [x] 2026-11-02：`QaErrorCase`、`QaDiagnosisTicket` 实体和 Mapper 编译通过
+- [x] 2026-11-02：`POST /case/import`、`GET /case/list` 已通过 Postman 测试
+- [ ] 下一步：整理 5 条真实报错案例并导入
+- [ ] 下一步：写诊断记录创建 + Mock AI 诊断
+- [ ] 后续：整理 20 条真实报错案例 + 20 条黄金评测用例
 - [ ] 下一步：Python 服务 MVP（解析 + 指纹 + 检索 + 结构化诊断 + abstain）
 - [ ] 下一步：诊断记录状态流转 + 人工确认 + 最小页面
 - [ ] 后续：60 条黄金集、CI 评测、部署上线
@@ -113,8 +113,7 @@ data/
 
 ## 下一步
 
-1. 在 IDEA 里 Maven 刷新 + Build，确认 `QaErrorCase`、`QaDiagnosisTicket` 实体和 Mapper 编译通过。
-2. 写 `/case/import`、`/case/list`，跑通案例入库和查询。
-3. 整理 20 条真实报错案例，先跑通案例入库和查询。
-4. 写 Python 诊断 MVP，先用固定 JSON 跑通 Java ↔ Python 链路，再接真实检索和模型。
-5. 做人工确认和最小页面，跑通一条完整闭环；再补黄金集和 CI。
+1. 整理 5 条真实报错案例，用 `/case/import` 导入，`/case/list` 能查到。
+2. 写诊断记录创建接口，先用固定 JSON 模拟 AI 诊断，跑通 `qa_diagnosis_ticket`。
+3. 写 Python 诊断 MVP，先用固定 JSON 跑通 Java ↔ Python 链路，再接真实检索和模型。
+4. 做人工确认和最小页面，跑通一条完整闭环；再补黄金集和 CI。

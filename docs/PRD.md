@@ -780,7 +780,7 @@ RabbitMQ（批量导入/索引重建/评测任务/失败重试）
 
 > 目标模型；`schema.sql` 已包含 `qa_document`、`qa_error_case`、`qa_diagnosis_ticket` 三张表。实际数据库尚未重建，重建步骤见 `server/sql/reset_v2.sql`；迁移前不要按本文档直接改生产数据。
 >
-> 当前实现状态（2026-11-02）：项目改名为 TraceFix，Java 包名 `com.tracefix`；Java 骨架 + `/doc/upload` 已完成；数据库已按 `reset_v2.sql` + `schema.sql` 重建；`QaErrorCase` / `QaDiagnosisTicket` 实体和 Mapper 已新增（待编译验证）；案例接口、诊断和评测尚未实现。
+> 当前实现状态（2026-11-02）：项目改名为 TraceFix，Java 包名 `com.tracefix`；Java 骨架 + `/doc/upload` 已完成；数据库已按 `reset_v2.sql` + `schema.sql` 重建；`QaErrorCase` / `QaDiagnosisTicket` 实体和 Mapper 已编译通过；`/case/import`、`/case/list` 已通过 Postman 测试；诊断和评测尚未实现。
 
 ### 11.1 表关系
 
