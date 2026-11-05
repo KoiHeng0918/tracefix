@@ -2,7 +2,7 @@
 
 TraceFix 是一个面向 Java 开发者的报错诊断系统：粘贴真实报错后，系统解析堆栈、从结构化案例库中检索相似问题，生成带证据的诊断（原因、排查、修复、验证），并由人工确认修复是否有效。确认有效的案例回流到案例库，形成可复用的数据资产。
 
-> 当前阶段：P0 Mock 闭环已跑通：贴报错 → 建工单 → 返回诊断 → 人工确认 → 案例草稿；下一步接真实 RAG 和评测。
+> 当前阶段：Java ↔ Python 诊断链路已打通；Python 已完成堆栈解析、指纹、MySQL 案例读取和关键词检索；LangGraph 已跑通模板版诊断流程。下一步接入大模型生成、Embedding/FAISS 检索和评测。
 
 ## 解决什么问题
 
@@ -18,11 +18,11 @@ TraceFix 把“报错—原因—修复—验证”整理成结构化案例，�
 
 ```text
 提交报错
-  → 解析异常类型 / 消息 / 堆栈帧 / 指纹
-  → 从案例库检索相似案例（精确匹配 + 语义检索）
-  → 生成结构化诊断：原因 / 排查 / 修复 / 验证 / 引用
+  → 解析异常类型 / 消息 / 指纹
+  → 从案例库检索相似案例
+  → 生成结构化诊断：原因 / 修复 / 验证 / 引用
   → 人工确认：原因对不对、修好没有
-  → 修好：沉淀为新案例；没修好：转人工 / 记为负例
+  → 修好：生成案例草稿；审核后进入正式案例库
 ```
 
 ## 功能状态
@@ -30,12 +30,19 @@ TraceFix 把“报错—原因—修复—验证”整理成结构化案例，�
 | 模块 | 状态 | 说明 |
 |---|---|---|
 | 文档录入 | 已实现 | `POST /doc/upload`，P1 原始资料 |
-| 案例库 | 已实现 | 结构化报错案例，支持导入和查询 |
-| 诊断记录 | 已跑通 | 创建、列表、详情、人工确认 |
-| 报错诊断 | Mock 闭环已跑通 | 关键词规则返回结构化诊断；真实 RAG 下一步 |
-| 黄金评测集 | 规划中 | 60 条真实场景，dev/test/holdout 拆分 |
-| 前端页面 | 最小页面已实现 | 单页 HTML，提交报错 + 查看诊断 + 确认结果 |
-| LangGraph 编排 | Python 骨架 | 诊断状态图、条件分支和重试 |
+| 案例库 | 已实现 | 导入、列表、详情、审核、工单回流 |
+| 诊断记录 | 已实现 | 创建、列表、详情、人工确认 |
+| Java → Python 通信 | 已实现 | `HttpAiClient` 调 FastAPI `/ai/diagnose` |
+| 堆栈解析 | 已实现 | 异常类型、归一化消息、指纹 |
+| Python 案例读取 | 已实现 | 从 MySQL 读取 `ACTIVE` 案例 |
+| 关键词检索 | 已实现 | 异常类型匹配 + 消息关键词打分 |
+| 诊断生成 | 模板版 | 用 top1 案例回填根因/修复/验证；LLM 下一步 |
+| LangGraph 编排 | 已跑通 | retrieve / assess / generate / validate；generate 暂为模板版 |
+| Mock AI | 已实现 | `ai.mock=true` 时使用，便于离线调试 |
+| 黄金评测集 | 骨架 | `eval/` 下已有脚本和空数据文件，尚未开始标注 |
+| 前端页面 | 最小页面 | 提交报错、查看诊断、人工确认 |
+| Embedding / FAISS | 规划中 | 案例补到一定数量后接入 |
+| Redis / RabbitMQ | 规划中 | 缓存、限流、异步导入和重建索引 |
 
 ## 技术架构
 
@@ -43,31 +50,30 @@ TraceFix 把“报错—原因—修复—验证”整理成结构化案例，�
 浏览器（单页 HTML）
    │ HTTP
 Java 主服务（Spring Boot + MyBatis-Plus）
-   │  ├─ 案例/诊断记录/人工确认（MySQL）
-   │  ├─ 输入校验、缓存、限流（Redis）
-   │  └─ HTTP 调用 Python AI 服务
+   │  ├─ 案例 / 诊断记录 / 人工确认（MySQL）
+   │  └─ HttpAiClient ──────────────┐
+   │                                │ HTTP
+   │                                ▼
+   │                    Python AI 服务（FastAPI）
+   │                      ├─ 堆栈解析 / 指纹
+   │                      ├─ MySQL ACTIVE 案例读取
+   │                      ├─ 关键词检索
+   │                      └─ LangGraph 编排
    │
-Python AI 服务（FastAPI）
-   ├─ 堆栈解析 / 指纹
-   ├─ 混合检索（FAISS + 全文 + 元数据）
-   ├─ 结构化诊断生成
-   └─ 引用校验 / 置信度判断
-   │
-MySQL（事实来源） ── FAISS（派生索引，可重建）
-   │
-RabbitMQ（批量导入、索引重建、评测任务）
+MySQL（事实来源）
+Redis / RabbitMQ / FAISS（规划中）
 ```
 
-Java 负责工程化与业务状态，Python 负责解析、检索和模型调用；MySQL 是事实来源，FAISS 索引可随时重建。
+Java 负责业务状态和数据库写入，Python 负责解析、检索和后续模型调用。MySQL 是事实来源，后续 FAISS 只作为可重建的派生索引。
 
 ## 技术栈
 
 - Java 主服务：Spring Boot 4.1.2、MyBatis-Plus 3.5.18.1
-- 数据：MySQL、Redis、RabbitMQ
-- Python AI 服务：FastAPI、FAISS、DeepSeek、通义 text-embedding-v3
-- 诊断编排：LangGraph（P1，用于条件分支、重试和人工中断）
+- 数据：MySQL
+- Python AI 服务：FastAPI、PyMySQL
+- 诊断编排：LangGraph
 - 前端：单文件 HTML + JS，同源部署
-- 评测：Python 脚本 + 黄金集 + CI（规划中）
+- 规划中：DeepSeek、通义 text-embedding-v3、FAISS、Redis、RabbitMQ
 
 ## 数据模型
 
@@ -92,51 +98,124 @@ Java 负责工程化与业务状态，Python 负责解析、检索和模型调�
 | GET | `/case/detail` | 已实现 | 案例详情 |
 | POST | `/case/review` | 已实现 | 审核案例状态 |
 | POST | `/case/promote` | 已实现 | 已解决工单生成案例草稿 |
-| POST | `/diagnosis/analyze` | 已实现（Mock） | 提交报错并诊断 |
+| POST | `/diagnosis/analyze` | 已实现 | 提交报错并诊断；由 `ai.mock` 切换 Mock/Python |
 | GET | `/diagnosis/ticket/list` | 已实现 | 查询诊断记录 |
 | GET | `/diagnosis/ticket/detail` | 已实现 | 诊断记录详情 |
 | POST | `/diagnosis/confirm` | 已实现 | 人工确认根因/修复效果 |
 
+Python 服务额外提供：
+
+| 方法 | 路径 | 说明 |
+|---|---|---|
+| GET | `/ai/health` | Python 服务健康检查 |
+| POST | `/ai/diagnose` | 解析、检索案例并返回结构化诊断 |
+
 ## 快速开始
 
-环境要求：JDK 17、Maven、MySQL 8。
+### 1. 准备 MySQL
 
-1. 创建 `tracefix` 数据库，执行 `server/sql/schema.sql`。
-2. 复制 `server/src/main/resources/application-example.yml` 为 `application.yml`，填入本地数据库/Redis/RabbitMQ 配置。
-3. 启动 `TraceFixApplication`。
-4. 打开 `http://localhost:8080/`，或访问 `GET /api/health` 确认返回 `ok`。
+1. 创建 `tracefix` 数据库。
+2. 执行 `server/sql/schema.sql`。
+3. 准备少量 `qa_error_case` 数据，状态为 `ACTIVE` 才会参与检索。
 
-## Mock AI 是什么
+### 2. 启动 Python 服务
 
-当前诊断接口使用 `MockAiClient`，**不调用 DeepSeek/Python**，而是根据报错关键词返回固定结构的诊断。
+```bash
+cd ai
+python -m venv .venv
+.venv\Scripts\python.exe -m pip install -r requirements.txt
+```
 
-用途：先把“贴报错 → 建工单 → 诊断 → 人工确认 → 案例草稿”整条链路跑通，不依赖 API Key 和外部服务。
+创建 `ai/.env`：
 
-替换真实 AI 时，只需要实现一个新的 `AiClient`，在 `diagnose()` 里调用 Python `/ai/diagnose`，然后替换 `MockAiClient` 这个 Bean。
+```text
+MYSQL_HOST=127.0.0.1
+MYSQL_PORT=13306
+MYSQL_USER=你的用户名
+MYSQL_PASSWORD=你的密码
+MYSQL_DATABASE=tracefix
+```
+
+启动：
+
+```bash
+.venv\Scripts\python.exe -m uvicorn main:app --reload --port 8000
+```
+
+### 3. 配置并启动 Java
+
+复制：
+
+```text
+server/src/main/resources/application-example.yml
+```
+
+为：
+
+```text
+server/src/main/resources/application.yml
+```
+
+填入本地数据库配置，并确认：
+
+```yaml
+ai:
+  base-url: http://127.0.0.1:8000
+  mock: false
+```
+
+启动 `TraceFixApplication` 后访问：
+
+```text
+http://localhost:8080/
+```
+
+或检查：
+
+```text
+GET /api/health
+GET http://127.0.0.1:8000/ai/health
+```
 
 开发环境数据库通过 SSH 隧道访问，真实密码不进入仓库。
+
+## Mock AI 与真实 Python 的切换
+
+```text
+ai.mock=true  → MockAiClient
+ai.mock=false → HttpAiClient → Python /ai/diagnose
+```
+
+`MockAiClient` 用于离线调试和跑通 Java 业务流程；`HttpAiClient` 用于真实检索链路。
+
+当前 Python 的 `generate` 节点仍是模板版：用检索到的 top1 案例的根因、修复步骤和验证方式填充诊断，还没有调用大模型。
 
 ## 项目结构
 
 ```text
 tracefix/
-├── data/                    知识库原始资料
+├── data/                    知识库原始资料和报错候选清单
 ├── docs/
 │   ├── PRD.md               产品需求说明书
 │   └── FEATURE_MATRIX.md    功能矩阵
-├── ai/                      Python AI 服务骨架
+├── ai/                      Python AI 服务
 │   ├── main.py              FastAPI 入口
 │   ├── parsers/             堆栈解析 / 指纹
-│   ├── retrieval/           案例检索骨架
-│   └── graph/               LangGraph 骨架
-├── eval/                    评测脚本与黄金集
+│   ├── retrieval/           MySQL 案例读取和关键词检索
+│   ├── graph/               LangGraph 诊断编排
+│   ├── scripts/             本地开发调试脚本（不参与运行时）
+│   └── tests/               Python 单元测试
+├── eval/                    评测脚本与黄金集骨架
+│   ├── README.md            评测说明
+│   ├── run_eval.py          评测入口
+│   └── golden/cases.jsonl   黄金集数据（当前为空）
 ├── server/
 │   ├── sql/
 │   │   ├── schema.sql       三张核心表
 │   │   └── reset_v2.sql     本地重建库脚本
 │   └── src/main/
 │       ├── java/com/tracefix/
-│       │   ├── client/      Mock AI 客户端
+│       │   ├── client/      Mock AI / HTTP AI 客户端
 │       │   ├── common/      统一返回、异常处理
 │       │   ├── config/      MyBatis-Plus、RabbitMQ 配置
 │       │   ├── controller/  health / case / diagnosis
@@ -150,41 +229,39 @@ tracefix/
 
 ## Roadmap
 
-### P0：先跑通案例库和诊断数据模型
+### P0：跑通业务闭环
 
-- Java 骨架、MySQL/Redis/RabbitMQ 连通
+- Java 骨架、MySQL 连通
 - 案例表、诊断记录表
-- 案例导入/查询接口
-- 5–20 条真实报错案例
-- 诊断记录创建 + Mock AI 诊断
+- 案例导入 / 查询 / 审核
+- 诊断记录 + Mock AI
+- 人工确认、案例回流
 
-### P1：接入真实诊断链路
+### P1：真实诊断链路
 
 - Python FastAPI 服务
-- 堆栈解析、指纹、混合检索
-- DeepSeek 结构化诊断 + 引用校验
-- LangGraph 诊断编排：
-  - 证据充分性判断
-  - 信息不足时追问
-  - 引用校验失败时重试/降级
-  - 人工中断和升级
-- 诊断记录状态流转 + 人工确认
-- 最小前端页面
+- 堆栈解析、指纹
+- MySQL ACTIVE 案例读取
+- 关键词检索
+- LangGraph 诊断编排（模板版已跑通）
+- 后续：大模型结构化诊断、引用校验、证据不足追问/拒答
 
 ### P2：把效果做成可证明的
 
-- 60 条黄金评测集，dev/test/holdout 拆分
-- 检索指标：Recall@5、MRR
-- 诊断指标：根因准确率、引用正确率、答案忠实度、abstain 准确率
+- 补充 30–60 条真实案例
+- Embedding + FAISS 混合检索
+- 黄金评测集、Recall@5、MRR、根因准确率、引用正确率
 - CI 分层回归
 - 部署上线
 
 ## 设计取舍
 
 **为什么只做报错诊断，不做通用问答？**
+
 通用 Java 问答容易被通用大模型替代；报错诊断有具体输入、可验证结果、可沉淀案例，更适合做成一个有数据资产的项目。
 
 **为什么检索是证据层，不是产品本身？**
+
 诊断需要引用历史案例，不能只靠模型记忆；但检索只是“找证据”。指纹精确命中时可以直接返回案例，没有证据时必须明确说信息不足，而不是硬答。
 
 ## 开发记录
@@ -192,4 +269,5 @@ tracefix/
 - Maven 中央仓库不可用 → 配置阿里云镜像。
 - 数据库公网连接超时 → 使用 SSH 隧道访问。
 - MyBatis-Plus 3.5.9+ 分页插件拆分 → 手动引入 `mybatis-plus-jsqlparser`。
+- Java `RestClient` 与 Uvicorn 协议不匹配 → 使用 `SimpleClientHttpRequestFactory` 强制 HTTP/1.1。
 - 命令行 Maven 需指定 JDK 17 的 `JAVA_HOME`。
