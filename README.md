@@ -2,7 +2,7 @@
 
 TraceFix 是一个面向 Java 开发者的报错诊断系统：粘贴真实报错后，系统解析堆栈、从结构化案例库中检索相似问题，生成带证据的诊断（原因、排查、修复、验证），并由人工确认修复是否有效。确认有效的案例回流到案例库，形成可复用的数据资产。
 
-> 当前阶段：P0 的 Java 骨架、数据库模型、案例导入/查询接口已完成；诊断链路、Python AI 服务和评测体系正在开发。
+> 当前阶段：P0 Mock 闭环已跑通：贴报错 → 建工单 → 返回诊断 → 人工确认 → 案例草稿；下一步接真实 RAG 和评测。
 
 ## 解决什么问题
 
@@ -31,11 +31,11 @@ TraceFix 把“报错—原因—修复—验证”整理成结构化案例，�
 |---|---|---|
 | 文档录入 | 已实现 | `POST /doc/upload`，P1 原始资料 |
 | 案例库 | 已实现 | 结构化报错案例，支持导入和查询 |
-| 诊断记录 | 数据模型已建 | 记录输入、AI 诊断、人工确认和状态流转 |
-| 报错诊断 | 开发中 | 解析、检索、结构化输出、引用校验 |
+| 诊断记录 | 已跑通 | 创建、列表、详情、人工确认 |
+| 报错诊断 | Mock 闭环已跑通 | 关键词规则返回结构化诊断；真实 RAG 下一步 |
 | 黄金评测集 | 规划中 | 60 条真实场景，dev/test/holdout 拆分 |
-| 前端页面 | 规划中 | 单页 HTML，提交报错 + 查看诊断 + 确认结果 |
-| LangGraph 编排 | P1 规划 | 诊断状态图、条件分支、重试和人工中断 |
+| 前端页面 | 最小页面已实现 | 单页 HTML，提交报错 + 查看诊断 + 确认结果 |
+| LangGraph 编排 | Python 骨架 | 诊断状态图、条件分支和重试 |
 
 ## 技术架构
 
@@ -89,8 +89,13 @@ Java 负责工程化与业务状态，Python 负责解析、检索和模型调�
 | POST | `/doc/upload` | 已实现 | 文档录入（P1） |
 | POST | `/case/import` | 已实现 | 导入一条案例 |
 | GET | `/case/list` | 已实现 | 查询案例列表 |
-| POST | `/diagnosis/analyze` | 规划中 | 提交报错并诊断 |
-| POST | `/diagnosis/confirm` | 规划中 | 人工确认根因/修复效果 |
+| GET | `/case/detail` | 已实现 | 案例详情 |
+| POST | `/case/review` | 已实现 | 审核案例状态 |
+| POST | `/case/promote` | 已实现 | 已解决工单生成案例草稿 |
+| POST | `/diagnosis/analyze` | 已实现（Mock） | 提交报错并诊断 |
+| GET | `/diagnosis/ticket/list` | 已实现 | 查询诊断记录 |
+| GET | `/diagnosis/ticket/detail` | 已实现 | 诊断记录详情 |
+| POST | `/diagnosis/confirm` | 已实现 | 人工确认根因/修复效果 |
 
 ## 快速开始
 
@@ -99,7 +104,15 @@ Java 负责工程化与业务状态，Python 负责解析、检索和模型调�
 1. 创建 `tracefix` 数据库，执行 `server/sql/schema.sql`。
 2. 复制 `server/src/main/resources/application-example.yml` 为 `application.yml`，填入本地数据库/Redis/RabbitMQ 配置。
 3. 启动 `TraceFixApplication`。
-4. 访问 `GET /api/health`，返回 `ok` 即启动成功。
+4. 打开 `http://localhost:8080/`，或访问 `GET /api/health` 确认返回 `ok`。
+
+## Mock AI 是什么
+
+当前诊断接口使用 `MockAiClient`，**不调用 DeepSeek/Python**，而是根据报错关键词返回固定结构的诊断。
+
+用途：先把“贴报错 → 建工单 → 诊断 → 人工确认 → 案例草稿”整条链路跑通，不依赖 API Key 和外部服务。
+
+替换真实 AI 时，只需要实现一个新的 `AiClient`，在 `diagnose()` 里调用 Python `/ai/diagnose`，然后替换 `MockAiClient` 这个 Bean。
 
 开发环境数据库通过 SSH 隧道访问，真实密码不进入仓库。
 
@@ -109,19 +122,29 @@ Java 负责工程化与业务状态，Python 负责解析、检索和模型调�
 tracefix/
 ├── data/                    知识库原始资料
 ├── docs/
-│   └── PRD.md               产品需求说明书
+│   ├── PRD.md               产品需求说明书
+│   └── FEATURE_MATRIX.md    功能矩阵
+├── ai/                      Python AI 服务骨架
+│   ├── main.py              FastAPI 入口
+│   ├── parsers/             堆栈解析 / 指纹
+│   ├── retrieval/           案例检索骨架
+│   └── graph/               LangGraph 骨架
+├── eval/                    评测脚本与黄金集
 ├── server/
 │   ├── sql/
 │   │   ├── schema.sql       三张核心表
 │   │   └── reset_v2.sql     本地重建库脚本
-│   └── src/main/java/com/tracefix/
-│       ├── common/          统一返回结构
-│       ├── config/          MyBatis-Plus 配置
-│       ├── controller/      健康检查、文档、案例接口
-│       ├── dto/             请求参数
-│       ├── entity/          实体
-│       ├── mapper/          Mapper
-│       └── service/         业务层
+│   └── src/main/
+│       ├── java/com/tracefix/
+│       │   ├── client/      Mock AI 客户端
+│       │   ├── common/      统一返回、异常处理
+│       │   ├── config/      MyBatis-Plus、RabbitMQ 配置
+│       │   ├── controller/  health / case / diagnosis
+│       │   ├── dto/         请求参数
+│       │   ├── entity/      实体
+│       │   ├── mapper/      Mapper
+│       │   └── service/     业务层
+│       └── resources/static/index.html  最小前端页
 └── README.md
 ```
 

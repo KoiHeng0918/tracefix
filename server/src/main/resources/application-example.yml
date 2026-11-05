@@ -2,6 +2,8 @@ server:
   port: 8080
 
 spring:
+  application:
+    name: tracefix
   datasource:
     url: jdbc:mysql://127.0.0.1:13306/tracefix?useSSL=false&serverTimezone=Asia/Shanghai&characterEncoding=utf8
     username: YOUR_MYSQL_USER
@@ -14,7 +16,11 @@ spring:
       password:
       database: 0
   rabbitmq:
-    host: YOUR_SERVER_IP
+    host: 127.0.0.1
     port: 5672
     username: YOUR_RABBITMQ_USER
     password: YOUR_RABBITMQ_PASSWORD
+
+ai:
+  base-url: http://127.0.0.1:8000
+  mock: true

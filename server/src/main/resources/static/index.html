@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TraceFix - 报错诊断</title>
+    <style>
+        body { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; max-width: 980px; margin: 40px auto; padding: 0 16px; color: #222; }
+        h1 { margin-bottom: 4px; }
+        .muted { color: #777; margin-top: 0; }
+        textarea { width: 100%; box-sizing: border-box; padding: 10px; font-family: Consolas, monospace; font-size: 13px; }
+        #trace { height: 220px; }
+        #context { height: 60px; }
+        #confirmedRootCause { height: 70px; }
+        #resolutionNote { height: 60px; }
+        button { padding: 8px 16px; margin: 8px 8px 8px 0; cursor: pointer; }
+        pre { background: #f6f8fa; padding: 12px; overflow: auto; border-radius: 6px; }
+        .row { display: flex; gap: 12px; align-items: center; margin-top: 12px; }
+        input[type="number"] { width: 120px; padding: 6px; }
+        .card { border: 1px solid #ddd; border-radius: 8px; padding: 16px; margin-top: 20px; }
+    </style>
+</head>
+<body>
+<h1>TraceFix</h1>
+<p class="muted">贴一条真实报错，得到带证据的诊断，然后确认修好没有。</p>
+
+<h3>1. 粘贴报错</h3>
+<textarea id="trace" placeholder="把完整堆栈粘贴到这里..."></textarea>
+<p class="muted">补充信息（可选）：JDK / Spring Boot 版本、相关代码片段</p>
+<textarea id="context" placeholder="Spring Boot 3.2, JDK17"></textarea>
+<button onclick="analyze()">开始诊断</button>
+
+<div class="card">
+    <h3>2. 诊断结果</h3>
+    <pre id="result">还没有提交。</pre>
+</div>
+
+<div class="card">
+    <h3>3. 人工确认</h3>
+    <div class="row">
+        <label>诊断记录编号：</label>
+        <input type="number" id="ticketId" placeholder="诊断后自动填入">
+    </div>
+
+    <p class="muted">
+        真实根因（可选）：如果 AI 判断不对，再在这里改成真正的原因。
+    </p>
+    <textarea id="confirmedRootCause" placeholder="例如：SSH 隧道未启动"></textarea>
+
+    <p class="muted">
+        解决说明：你实际做了什么，让问题消失。
+    </p>
+    <textarea id="resolutionNote" placeholder="例如：重新打开 SSH 隧道后恢复"></textarea>
+
+    <div class="row">
+        <button onclick="confirmTicket(true, true)">原因正确，已修好</button>
+        <button onclick="confirmTicket(true, false)">原因正确，还没修好</button>
+        <button onclick="confirmTicket(false, false)">原因不对</button>
+        <button onclick="confirmTicket(false, true)">原因不对，但已修好</button>
+    </div>
+    <div class="row">
+        <button id="promoteBtn" style="display:none" onclick="promoteTicket()">生成案例草稿</button>
+    </div>
+    <pre id="confirmResult">确认结果会显示在这里。</pre>
+</div>
+
+<script>
+    async function analyze() {
+        const inputTrace = document.getElementById('trace').value.trim();
+        const inputContext = document.getElementById('context').value.trim();
+        if (!inputTrace) {
+            alert('先粘贴报错');
+            return;
+        }
+        const result = document.getElementById('result');
+        result.textContent = '诊断中...';
+        document.getElementById('promoteBtn').style.display = 'none';
+        try {
+            const response = await fetch('/diagnosis/analyze', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({inputTrace, inputContext})
+            });
+            const json = await response.json();
+            result.textContent = JSON.stringify(json, null, 2);
+            if (json.data && json.data.ticketId) {
+                document.getElementById('ticketId').value = json.data.ticketId;
+            }
+            // 把 AI 返回的根因预填到“真实根因”，没有根因时用标题兜底
+            const diagnosis = json.data && json.data.diagnosis;
+            if (diagnosis) {
+                const firstCause = diagnosis.rootCause || diagnosis.title;
+                if (firstCause) {
+                    document.getElementById('confirmedRootCause').value = firstCause;
+                }
+            }
+        } catch (e) {
+            result.textContent = '请求失败：' + e;
+        }
+    }
+
+    async function confirmTicket(rootCauseCorrect, fixEffective) {
+        const ticketId = document.getElementById('ticketId').value;
+        const confirmedRootCause = document.getElementById('confirmedRootCause').value.trim();
+        const resolutionNote = document.getElementById('resolutionNote').value.trim();
+
+        if (!ticketId) {
+            alert('先填 ticketId');
+            return;
+        }
+        if (fixEffective && !resolutionNote) {
+            alert('已修好时，请简单写一下怎么修好的');
+            return;
+        }
+        if (fixEffective && !rootCauseCorrect && !confirmedRootCause) {
+            alert('原因不对但已修好时，请填写真实根因');
+            return;
+        }
+
+        const result = document.getElementById('confirmResult');
+        result.textContent = '提交中...';
+        try {
+            const response = await fetch('/diagnosis/confirm', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    ticketId: Number(ticketId),
+                    rootCauseCorrect,
+                    fixEffective,
+                    confirmedRootCause,
+                    resolutionNote
+                })
+            });
+            const json = await response.json();
+            result.textContent = JSON.stringify(json, null, 2);
+
+            // 只有已解决的记录才允许生成案例草稿
+            const promoteBtn = document.getElementById('promoteBtn');
+            promoteBtn.style.display = json.data && json.data.status === 'RESOLVED'
+                ? 'inline-block'
+                : 'none';
+        } catch (e) {
+            result.textContent = '请求失败：' + e;
+        }
+    }
+
+    async function promoteTicket() {
+        const ticketId = document.getElementById('ticketId').value;
+        if (!ticketId) {
+            alert('先填诊断记录编号');
+            return;
+        }
+
+        const result = document.getElementById('confirmResult');
+        result.textContent = '生成案例草稿中...';
+        try {
+            const response = await fetch('/case/promote', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ticketId: Number(ticketId)})
+            });
+            const json = await response.json();
+            result.textContent = JSON.stringify(json, null, 2);
+            document.getElementById('promoteBtn').style.display = 'none';
+        } catch (e) {
+            result.textContent = '请求失败：' + e;
+        }
+    }
+</script>
+</body>
+</html>

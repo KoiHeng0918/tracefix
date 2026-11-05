@@ -846,7 +846,6 @@ qa_document（原始资料，P1）  ──可生成──>  qa_error_case
 | `diagnosis_json` | MEDIUMTEXT/JSON | 结构化诊断 |
 | `confidence` | DECIMAL(3,2) | 置信度 |
 | `status` | VARCHAR(20) | 状态机 |
-| `confirmation_result` | VARCHAR(20) | ROOT_CAUSE_CORRECT/INCORRECT/PARTIAL |
 | `confirmed_root_cause` | TEXT | 人工确认/修正的根因 |
 | `fix_effective` | TINYINT(1) | 修复是否有效 |
 | `resolution_note` | TEXT | 解决说明 |
@@ -912,8 +911,8 @@ qa_document（原始资料，P1）  ──可生成──>  qa_error_case
 
 ```json
 {
-  "trace": "java.lang.NullPointerException: ...\n\tat com.demo.UserService...",
-  "context": "Spring Boot 3.2.0, MyBatis-Plus 3.5.5, JDK17",
+  "inputTrace": "java.lang.NullPointerException: ...\n\tat com.demo.UserService...",
+  "inputContext": "Spring Boot 3.2.0, MyBatis-Plus 3.5.5, JDK17",
   "attempted": "已经检查过数据库连接",
   "sessionId": "s-20261102-001",
   "requestId": "r-001"

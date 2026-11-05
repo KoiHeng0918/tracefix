@@ -69,7 +69,6 @@ CREATE TABLE IF NOT EXISTS qa_diagnosis_ticket (
     diagnosis_json      MEDIUMTEXT   DEFAULT NULL COMMENT '结构化诊断 JSON',
     confidence          DECIMAL(3,2) DEFAULT NULL COMMENT '置信度 0.00-1.00',
     status              VARCHAR(20)  NOT NULL DEFAULT 'SUBMITTED' COMMENT 'SUBMITTED/DIAGNOSED/NEED_INFO/ABSTAINED/CONFIRMED/REJECTED/RESOLVED/ESCALATED/ARCHIVED/DIAGNOSIS_FAILED',
-    confirmation_result VARCHAR(20)  DEFAULT NULL COMMENT 'ROOT_CAUSE_CORRECT/INCORRECT/PARTIAL',
     confirmed_root_cause TEXT        DEFAULT NULL COMMENT '人工确认/修正后的根因',
     fix_effective       TINYINT(1)   DEFAULT NULL COMMENT '修复是否有效：1 是 / 0 否 / NULL 未确认',
     resolution_note     TEXT         DEFAULT NULL COMMENT '解决说明',

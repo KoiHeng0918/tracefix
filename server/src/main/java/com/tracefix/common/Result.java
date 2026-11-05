@@ -2,10 +2,19 @@ package com.tracefix.common;
 
 import lombok.Data;
 
+/**
+ * 统一返回结构：{ code, message, data }。
+ * code=0 表示成功，非 0 表示失败。
+ */
 @Data
 public class Result<T> {
+    /** 业务状态码 */
     private Integer code;
+
+    /** 提示信息 */
     private String message;
+
+    /** 返回数据 */
     private T data;
 
     public static <T> Result<T> success(T data) {
