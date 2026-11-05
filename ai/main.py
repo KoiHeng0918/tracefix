@@ -39,9 +39,6 @@ def diagnose(req: DiagnoseRequest):
         "message": extracted_message,
         "fingerprint": fingerprint_value,
     }
-
-    result = diagnosis_graph(state)
-
     result = diagnosis_graph.invoke(state)
     diagnosis = result.get("diagnosis") or {}
     matched_case_ids = result.get("matched_case_ids") or []
