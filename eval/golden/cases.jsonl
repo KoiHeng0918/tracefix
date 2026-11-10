@@ -18,3 +18,18 @@
 {"query": "项目启动时某个 Bean 创建失败，依赖找不到", "expectedCaseNo": "ERR-SPRING-0001", "split": "holdout"}
 {"query": "重启项目时提示端口已经被占用，起不来", "expectedCaseNo": "ERR-SPRING-0002", "split": "holdout"}
 {"query": "Mapper 调用时报找不到 SQL 映射语句", "expectedCaseNo": "ERR-MYBATIS-0001", "split": "holdout"}
+{"query": "项目运行时提示找不到某个类，启动直接失败", "expectedCaseNo": "ERR-JAVA-0001", "split": "dev"}
+{"query": "本地编译正常，部署后报 ClassNotFound，可能是依赖没打进去", "expectedCaseNo": "ERR-JAVA-0001", "split": "test"}
+{"query": "调用第三方 SDK 时提示类不存在，检查了 pom 还是有这个错", "expectedCaseNo": "ERR-JAVA-0001", "split": "holdout"}
+{"query": "代码能编译，运行调用方法时报找不到方法", "expectedCaseNo": "ERR-JAVA-0002", "split": "dev"}
+{"query": "升级依赖后运行报 NoSuchMethodError，怀疑版本冲突", "expectedCaseNo": "ERR-JAVA-0002", "split": "test"}
+{"query": "方法明明存在，但运行时一直说找不到方法，可能是加载了旧 jar", "expectedCaseNo": "ERR-JAVA-0002", "split": "holdout"}
+{"query": "Spring 启动时提示 Bean 正在创建中，像是有循环依赖", "expectedCaseNo": "ERR-SPRING-0003", "split": "dev"}
+{"query": "两个 Service 互相注入，项目启动失败", "expectedCaseNo": "ERR-SPRING-0003", "split": "test"}
+{"query": "启动日志说存在无法解析的循环引用，Bean 创建不出来", "expectedCaseNo": "ERR-SPRING-0003", "split": "holdout"}
+{"query": "程序跑一段时间就内存溢出，日志是 Java heap space", "expectedCaseNo": "ERR-JAVA-0003", "split": "dev"}
+{"query": "导出大量数据时应用内存暴涨，最后 OOM 退出", "expectedCaseNo": "ERR-JAVA-0003", "split": "test"}
+{"query": "服务运行久了堆内存被占满，重启后暂时恢复", "expectedCaseNo": "ERR-JAVA-0003", "split": "holdout"}
+{"query": "调用某个方法后堆栈溢出，日志里同一个方法重复很多次", "expectedCaseNo": "ERR-JAVA-0004", "split": "dev"}
+{"query": "递归查询菜单树时栈溢出", "expectedCaseNo": "ERR-JAVA-0004", "split": "test"}
+{"query": "方法调用层级太深导致栈溢出，应用直接报错", "expectedCaseNo": "ERR-JAVA-0004", "split": "holdout"}

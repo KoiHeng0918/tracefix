@@ -43,7 +43,7 @@ TraceFix 把“报错—原因—修复—验证”整理成结构化案例，�
 | FAISS 向量检索 | 已实现 | `IndexFlatIP` + L2 归一化，保存 `faiss.index` 和 `case_ids.json` |
 | 诊断生成 | 已实现 | DeepSeek 输出结构化 JSON；包含字段完整性和引用校验 |
 | LangGraph 编排 | 已实现 | retrieve → assess → generate → validate；证据不足走 ask/abstain |
-| 黄金评测集 | 已建立 | 20 条：`dev 10 / test 5 / holdout 5` |
+| 黄金评测集 | 已建立 | 35 条：`dev 15 / test 10 / holdout 10` |
 | Mock AI | 已实现 | `ai.mock=true` 时使用，便于离线调试 |
 | 前端页面 | 最小页面 | 提交报错、查看诊断、人工确认 |
 | RRF 混合检索 | 规划中 | 融合关键词和向量的排名 |
@@ -51,13 +51,15 @@ TraceFix 把“报错—原因—修复—验证”整理成结构化案例，�
 
 ## 评测结果
 
-当前 20 条评测数据覆盖 7 个 `ACTIVE` 案例，使用 `Recall@5` 作为检索指标：
+当前 35 条评测数据覆盖 12 个 `ACTIVE` 案例，使用 `Recall@5` 作为检索指标。
+
+> baseline：先跑通的简单方案，作为后续方案的对照。本项目把关键词检索作为 baseline，向量检索的效果要和它比较。
 
 | split | cases | keyword Recall@5 | vector Recall@5 |
 |---|---:|---:|---:|
-| dev | 10 | 0.50 | 1.00 |
-| test | 5 | 0.00 | 1.00 |
-| holdout | 5 | 0.20 | 1.00 |
+| dev | 15 | 0.47 | 1.00 |
+| test | 10 | 0.00 | 1.00 |
+| holdout | 10 | 0.10 | 1.00 |
 
 `Recall@5` 的含义：正确案例是否出现在检索结果前 5 条中。
 
@@ -65,7 +67,7 @@ TraceFix 把“报错—原因—修复—验证”整理成结构化案例，�
 
 - 关键词检索按空格分词，对中文自然语言和英文 `message_pattern` 的跨语言匹配能力弱，所以分数低。
 - 向量检索通过 Embedding 把中文问题和英文案例映射到同一语义空间，因此对自然语言描述更稳定。
-- 当前每组只有 5～10 条数据，`1.00` 只能说明当前样本上的效果，不能证明所有 Java 报错场景都有效。
+- 当前每组 10～15 条数据，`1.00` 只能说明当前样本上的效果，不能证明所有 Java 报错场景都有效。
 - `dev` 用于调参，`test` 用于方案比较，`holdout` 最后验收；不要根据 `test` 或 `holdout` 的逐条结果反复调参。
 
 ## 技术架构
@@ -263,7 +265,6 @@ ai.mock=false → HttpAiClient → Python /ai/diagnose
 
 ```text
 tracefix/
-├── data/                    知识库原始资料和报错候选清单
 ├── docs/
 │   ├── PRD.md               产品需求说明书
 │   └── FEATURE_MATRIX.md    功能矩阵
@@ -282,7 +283,7 @@ tracefix/
 ├── eval/                    评测脚本与黄金集
 │   ├── README.md            评测说明
 │   ├── run_eval.py          评测入口
-│   └── golden/cases.jsonl   20 条评测数据
+│   └── golden/cases.jsonl   35 条评测数据
 ├── server/
 │   ├── sql/
 │   │   ├── schema.sql       三张核心表
@@ -303,7 +304,7 @@ tracefix/
 
 ## 当前限制
 
-- `ACTIVE` 案例只有 7 条，评测集只有 20 条，样本规模仍然小。
+- `ACTIVE` 案例只有 12 条，评测集只有 35 条，样本规模仍然小。
 - 向量检索在这批数据上 `Recall@5=1.00`，不能直接外推到所有 Java 报错。
 - 还没有做关键词与向量的 RRF 融合。
 - Redis / RabbitMQ 还没有接入。
@@ -356,7 +357,6 @@ tracefix/
 
 - Maven 中央仓库不可用 → 配置阿里云镜像。
 - 数据库公网连接超时 → 使用 SSH 隧道访问。
-- MyBatis-Plus 3.5.9+ 分页插件拆分 → 手动引入 `mybatis-plus-jsqlparser`。
 - Java `RestClient` 与 Uvicorn 协议不匹配 → 使用 `SimpleClientHttpRequestFactory` 强制 HTTP/1.1。
 - 关键词检索中文跨语言匹配差 → 接入 Qwen Embedding + FAISS。
 - FAISS 只返回内部 ID → 保存 `case_ids.json`，用内部 ID 映射回 `case_no`。
