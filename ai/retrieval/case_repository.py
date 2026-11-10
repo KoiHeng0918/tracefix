@@ -52,7 +52,7 @@ def list_active_cases() -> list[dict]:
                 """
             )
 
-            # fetchall将返回值去除，结果为list
+            # fetchall将游标运行后的返回值取出，结果为list
             return list(cursor.fetchall())
     finally:
         connection.close()

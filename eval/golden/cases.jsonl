@@ -1,0 +1,20 @@
+{"query": "本地跑项目，一连接数据库就提示拒绝访问，账号密码应该没问题", "expectedCaseNo": "ERR-MYSQL-0002", "split": "dev"}
+{"query": "项目启动直接失败，日志说某个 Bean 注入不进来", "expectedCaseNo": "ERR-SPRING-0001", "split": "dev"}
+{"query": "Mapper 方法调用时报找不到对应 SQL", "expectedCaseNo": "ERR-MYBATIS-0001", "split": "dev"}
+{"query": "服务连数据库时提示目标计算机积极拒绝", "expectedCaseNo": "ERR-MYSQL-0001", "split": "dev"}
+{"query": "应用启动时直接退出，控制台说端口已经被别的程序占了", "expectedCaseNo": "ERR-SPRING-0002", "split": "dev"}
+{"query": "Spring Boot 启动时报 Access denied，数据库密码好像不对", "expectedCaseNo": "ERR-MYSQL-0002", "split": "dev"}
+{"query": "项目连不上 MySQL，日志里是 Connection refused", "expectedCaseNo": "ERR-MYSQL-0001", "split": "dev"}
+{"query": "启动时提示 required a bean of type ... that could not be found", "expectedCaseNo": "ERR-SPRING-0001", "split": "dev"}
+{"query": "Tomcat 启动失败，说 8080 端口被占用", "expectedCaseNo": "ERR-SPRING-0002", "split": "dev"}
+{"query": "MyBatis 报 Invalid bound statement (not found)", "expectedCaseNo": "ERR-MYBATIS-0001", "split": "dev"}
+{"query": "数据库账号密码不对，登录一直被拒绝", "expectedCaseNo": "ERR-MYSQL-0002", "split": "test"}
+{"query": "本机数据库端口是通的，但 Java 服务连接时被拒绝", "expectedCaseNo": "ERR-MYSQL-0001", "split": "test"}
+{"query": "Spring 启动时依赖注入失败，某个对象创建不出来", "expectedCaseNo": "ERR-SPRING-0001", "split": "test"}
+{"query": "应用启动时端口冲突，进程起不来", "expectedCaseNo": "ERR-SPRING-0002", "split": "test"}
+{"query": "MyBatis 查询时找不到对应的 SQL 映射", "expectedCaseNo": "ERR-MYBATIS-0001", "split": "test"}
+{"query": "明明改了数据库密码，还是提示用户无权访问", "expectedCaseNo": "ERR-MYSQL-0002", "split": "holdout"}
+{"query": "数据库服务在运行，但应用连接时提示积极拒绝", "expectedCaseNo": "ERR-MYSQL-0001", "split": "holdout"}
+{"query": "项目启动时某个 Bean 创建失败，依赖找不到", "expectedCaseNo": "ERR-SPRING-0001", "split": "holdout"}
+{"query": "重启项目时提示端口已经被占用，起不来", "expectedCaseNo": "ERR-SPRING-0002", "split": "holdout"}
+{"query": "Mapper 调用时报找不到 SQL 映射语句", "expectedCaseNo": "ERR-MYBATIS-0001", "split": "holdout"}
