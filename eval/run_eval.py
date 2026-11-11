@@ -36,6 +36,17 @@ def load_cases(split: str):
 
     return cases
 
+def rank_of(expected_case_no, candidate_ids):
+    # expected_case_no：标准答案
+    # candidate_ids：检索返回的案例编号列表
+
+    if expected_case_no in candidate_ids:
+        # list.index 返回从 0 开始的下标，所以 +1
+        return candidate_ids.index(expected_case_no) + 1
+
+    # 不在前 5 名
+    return None
+
 
 def main():
     # 这个脚本支持哪些命令行选项
@@ -57,9 +68,15 @@ def main():
 
     keyword_retriever = CaseRetriever()
     vector_retriever = VectorRetriever()
+
     keyword_hits = 0
     vector_hits = 0
 
+    keyword_hit1 = 0
+    vector_hit1 = 0
+
+    keyword_rr_sum = 0.0
+    vector_rr_sum = 0.0
     for item in cases:
         query = item["query"]
         expected_case_no = item["expectedCaseNo"]
@@ -80,33 +97,36 @@ def main():
 
         keyword_ids = [case["case_no"] for case in keyword_candidates]
         vector_ids = [case["case_no"] for case in vector_candidates]
+        keyword_rank = rank_of(expected_case_no, keyword_ids)
+        vector_rank = rank_of(expected_case_no, vector_ids)
 
-        if expected_case_no in vector_ids:
-            # list.index 返回从 0 开始的下标，所以 +1 才是名次
-            vector_rank = vector_ids.index(expected_case_no) + 1
-        else:
-            vector_rank = None
-
-        print(
-            f"query={query!r} "
-            f"vector_rank={vector_rank} "
-            f"vector_top5={vector_ids}"
-        )
-
-        keyword_hit = expected_case_no in keyword_ids
-        vector_hit = expected_case_no in vector_ids
-
-        if keyword_hit:
+        if keyword_rank is not None:
             keyword_hits += 1
+            keyword_rr_sum += 1 / keyword_rank
 
-        if vector_hit:
+            if keyword_rank == 1:
+                keyword_hit1 += 1
+
+        if vector_rank is not None:
             vector_hits += 1
+            vector_rr_sum += 1 / vector_rank
 
+            if vector_rank == 1:
+                vector_hit1 += 1
 
+    total = len(cases)
 
+    print(
+        f"keyword Recall@5={keyword_hits / total:.2f} "
+        f"Hit@1={keyword_hit1 / total:.2f} "
+        f"MRR={keyword_rr_sum / total:.3f}"
+    )
 
-    print(f"cases={len(cases)} keyword_recall@5={keyword_hits / len(cases):.2f}")
-    print(f"cases={len(cases)} vector_recall@5={vector_hits / len(cases):.2f}")
+    print(
+        f"vector  Recall@5={vector_hits / total:.2f} "
+        f"Hit@1={vector_hit1 / total:.2f} "
+        f"MRR={vector_rr_sum / total:.3f}"
+    )
 
 
 if __name__ == "__main__":

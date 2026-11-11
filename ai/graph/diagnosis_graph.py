@@ -7,6 +7,7 @@ from retrieval.vector_retriever import VectorRetriever
 import json
 
 vector_retriever = VectorRetriever()
+case_retriever = CaseRetriever()
 class DiagnosisState(TypedDict, total=False):
     # 用户粘贴的报错
     trace: str
@@ -38,13 +39,30 @@ class DiagnosisState(TypedDict, total=False):
 # 检索阶段节点，负责检索符合的案例集
 # 处理状态中的candidates
 def retrieve(state: DiagnosisState) -> DiagnosisState:
-    candidates = vector_retriever.retrieve(
-        state["trace"],
-        top_k=5,
-    )
-    return {
-        "candidates": candidates,
-    }
+    try:
+        candidates = vector_retriever.retrieve(
+            state["trace"],
+            top_k=5,
+        )
+        if not candidates:
+            candidates = case_retriever.retrieve(
+                state["exception"],
+                state["message"],
+                top_k=5,
+            )
+
+        return {
+            "candidates": candidates,
+        }
+    except Exception:
+        candidates = case_retriever.retrieve(
+            state["exception"],
+            state["message"],
+            top_k=5,
+        )
+        return {
+            "candidates": candidates,
+        }
 
 # 证据判断阶段节点，负责判断分数最高的案例集是否合格
 # 处理了状态的evidence_score，missing_info
@@ -130,7 +148,7 @@ def generate(state: DiagnosisState) -> DiagnosisState:
         top = candidates[0]
 
         # 降级前检查top1核心字段是否齐全
-        
+
         if not case_is_complete(top):
             state["diagnosis"] = {}
             state["citations"] = [top["case_no"]]
