@@ -69,8 +69,14 @@ def assess_evidence(state: DiagnosisState) -> DiagnosisState:
 
     return state
 
-# 生成节点
+# 生成节点generate，case_is_complete为generate用到的函数
 # 涉及了状态里关于诊断的字段diagnosis,status,missing_info
+def case_is_complete(case: dict) -> bool:
+    for field in ["root_cause", "fix_steps", "verification"]:
+        value = (case.get(field) or "").strip()
+        if not value or value == "待补充":
+            return False
+    return True
 def generate(state: DiagnosisState) -> DiagnosisState:
     candidates = state.get("candidates", [])
     if not candidates:
@@ -122,6 +128,16 @@ def generate(state: DiagnosisState) -> DiagnosisState:
     except Exception:
         # 模型返回格式异常时，降级为 top1 模板
         top = candidates[0]
+
+        # 降级前检查top1核心字段是否齐全
+        
+        if not case_is_complete(top):
+            state["diagnosis"] = {}
+            state["citations"] = [top["case_no"]]
+            state["missing_info"] = ["top1 案例字段不完整"]
+            state["status"] = "NEED_INFO"
+            return state
+
         state["diagnosis"] = {
             "title": top.get("title", ""),
             "rootCause": top.get("root_cause", ""),
@@ -133,12 +149,19 @@ def generate(state: DiagnosisState) -> DiagnosisState:
         state["missing_info"] = []
         state["status"] = "DIAGNOSED"
         return state
-        # 只有证据足够时，才要求核心答案字段完整
 
+    # 只有证据足够时，才要求核心答案字段完整
     if not data.get("missingInfo"):
         required_fields = ["rootCause", "fixSteps", "verification"]
         if any(not data.get(field) for field in required_fields):
             top = candidates[0]
+            # 降级前检查top1核心字段是否齐全
+            if not case_is_complete(top):
+                state["diagnosis"] = {}
+                state["citations"] = [top["case_no"]]
+                state["missing_info"] = ["top1 案例字段不完整"]
+                state["status"] = "NEED_INFO"
+                return state
             state["diagnosis"] = {
                 "title": top.get("title", ""),
                 "rootCause": top.get("root_cause", ""),
@@ -182,11 +205,6 @@ def validate_citations(state: DiagnosisState) -> DiagnosisState:
     return state
 
 
-def route_after_assess(state: DiagnosisState) -> str:
-    if state.get("evidence_score", 0) >= 0.6:
-        return "generate"
-    return "ask_or_abstain"
-
 
 def ask_or_abstain(state: DiagnosisState) -> DiagnosisState:
     state["status"] = "NEED_INFO"
@@ -204,6 +222,12 @@ def build_graph():
 
     graph.set_entry_point("retrieve")
     graph.add_edge("retrieve", "assess")
+
+    def route_after_assess(state: DiagnosisState) -> str:
+        if state.get("evidence_score", 0) >= 0.6:
+            return "generate"
+        return "ask_or_abstain"
+
     graph.add_conditional_edges("assess", route_after_assess, {
         "generate": "generate",
         "ask_or_abstain": "ask_or_abstain",

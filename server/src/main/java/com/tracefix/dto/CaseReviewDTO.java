@@ -15,10 +15,16 @@ public class CaseReviewDTO {
     private Long caseId;
 
     /** 目标状态：DRAFT / REVIEW / ACTIVE / DEPRECATED */
-    @NotBlank(message = "status 不可以为空")
-    private String status;
+    @NotBlank(message = "targetStatus 不可以为空")
+    private String targetStatus;
 
     /** 审核备注（可选） */
     private String comment;
+
+    private String rootCause;
+    
+    private String fixSteps;
+
+    private String verification;
 
 }

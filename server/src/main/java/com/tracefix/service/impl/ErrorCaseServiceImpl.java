@@ -12,6 +12,7 @@ import com.tracefix.service.ErrorCaseService;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
@@ -64,14 +65,46 @@ public class ErrorCaseServiceImpl implements ErrorCaseService {
         return errorCase;
     }
 
+
+
+    private boolean isBlankOrPlaceholder(String value) {
+        return value == null
+                || value.isBlank()
+                || "待补充".equals(value.trim());
+    }
     /** 修改案例状态，例如 DRAFT → ACTIVE。 */
     @Override
     public QaErrorCase review(CaseReviewDTO dto) {
         QaErrorCase errorCase = getCase(dto.getCaseId());
-        if (!List.of("DRAFT", "REVIEW", "ACTIVE", "DEPRECATED").contains(dto.getStatus())) {
-            throw new BizException("不支持的案例状态：" + dto.getStatus());
+        if (!List.of("DRAFT", "REVIEW", "ACTIVE", "DEPRECATED").contains(dto.getTargetStatus())) {
+            throw new BizException("不支持的案例状态：" + dto.getTargetStatus());
         }
-        errorCase.setStatus(dto.getStatus());
+
+        // 已废弃案例不能直接恢复为 ACTIVE，必须先恢复为 DRAFT/REVIEW 重新审核
+        if ("DEPRECATED".equals(errorCase.getStatus()) && "ACTIVE".equals(dto.getTargetStatus())) {
+            throw new BizException("已废弃案例不能直接启用，请先恢复为 DRAFT 或 REVIEW");
+        }
+
+        if ("ACTIVE".equals(dto.getTargetStatus())) {
+            if (StringUtils.hasText(dto.getRootCause())) {
+                errorCase.setRootCause(dto.getRootCause());
+            }
+
+            if (StringUtils.hasText(dto.getFixSteps())) {
+                errorCase.setFixSteps(dto.getFixSteps());
+            }
+
+            if (StringUtils.hasText(dto.getVerification())) {
+                errorCase.setVerification(dto.getVerification());
+            }
+
+            if (isBlankOrPlaceholder(errorCase.getRootCause())
+                    || isBlankOrPlaceholder(errorCase.getFixSteps())
+                    || isBlankOrPlaceholder(errorCase.getVerification())) {
+                throw new BizException("案例字段不完整，不允许修改状态");
+            }
+        }
+        errorCase.setStatus(dto.getTargetStatus());
         qaErrorCaseMapper.updateById(errorCase);
         return errorCase;
     }
