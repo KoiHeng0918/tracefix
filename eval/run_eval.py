@@ -5,6 +5,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "ai"))
 from retrieval.vector_retriever import VectorRetriever
+from retrieval.hybrid_retriever import HybridRetriever
 from parsers.stack_parser import extract_exception, extract_message
 from retrieval.case_retriever import CaseRetriever
 
@@ -68,15 +69,19 @@ def main():
 
     keyword_retriever = CaseRetriever()
     vector_retriever = VectorRetriever()
+    hybrid_retriever = HybridRetriever(keyword_retriever, vector_retriever)
 
     keyword_hits = 0
     vector_hits = 0
+    hybrid_hits = 0
 
     keyword_hit1 = 0
     vector_hit1 = 0
+    hybrid_hit1 = 0
 
     keyword_rr_sum = 0.0
     vector_rr_sum = 0.0
+    hybrid_rr_sum = 0.0
     for item in cases:
         query = item["query"]
         expected_case_no = item["expectedCaseNo"]
@@ -95,10 +100,19 @@ def main():
             top_k=5,
         )
 
+        hybrid_candidates = hybrid_retriever.retrieve(
+            query,
+            exception,
+            message,
+            top_k=5,
+        )
+
         keyword_ids = [case["case_no"] for case in keyword_candidates]
         vector_ids = [case["case_no"] for case in vector_candidates]
+        hybrid_ids = [case["case_no"] for case in hybrid_candidates]
         keyword_rank = rank_of(expected_case_no, keyword_ids)
         vector_rank = rank_of(expected_case_no, vector_ids)
+        hybrid_rank = rank_of(expected_case_no, hybrid_ids)
 
         if keyword_rank is not None:
             keyword_hits += 1
@@ -114,6 +128,13 @@ def main():
             if vector_rank == 1:
                 vector_hit1 += 1
 
+        if hybrid_rank is not None:
+            hybrid_hits += 1
+            hybrid_rr_sum += 1 / hybrid_rank
+
+            if hybrid_rank == 1:
+                hybrid_hit1 += 1
+
     total = len(cases)
 
     print(
@@ -126,6 +147,12 @@ def main():
         f"vector  Recall@5={vector_hits / total:.2f} "
         f"Hit@1={vector_hit1 / total:.2f} "
         f"MRR={vector_rr_sum / total:.3f}"
+    )
+
+    print(
+        f"hybrid  Recall@5={hybrid_hits / total:.2f} "
+        f"Hit@1={hybrid_hit1 / total:.2f} "
+        f"MRR={hybrid_rr_sum / total:.3f}"
     )
 
 
