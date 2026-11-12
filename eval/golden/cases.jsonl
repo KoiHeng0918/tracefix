@@ -33,3 +33,18 @@
 {"query": "调用某个方法后堆栈溢出，日志里同一个方法重复很多次", "expectedCaseNo": "ERR-JAVA-0004", "split": "dev"}
 {"query": "递归查询菜单树时栈溢出", "expectedCaseNo": "ERR-JAVA-0004", "split": "test"}
 {"query": "方法调用层级太深导致栈溢出，应用直接报错", "expectedCaseNo": "ERR-JAVA-0004", "split": "holdout"}
+{"query": "保存数据时提示唯一键冲突，数据库里有重复记录", "expectedCaseNo": "ERR-SPRING-0004", "split": "dev"}
+{"query": "接口重复提交后报 DuplicateKeyException，应该是唯一索引冲突", "expectedCaseNo": "ERR-SPRING-0004", "split": "test"}
+{"query": "新增用户时报重复键，可能是手机号已经存在", "expectedCaseNo": "ERR-SPRING-0004", "split": "holdout"}
+{"query": "执行查询时提示表不存在，数据库里没找到对应表", "expectedCaseNo": "ERR-MYSQL-0003", "split": "dev"}
+{"query": "本地建库后接口报 SQLSyntaxErrorException，说表不存在", "expectedCaseNo": "ERR-MYSQL-0003", "split": "test"}
+{"query": "换了环境后查询一直报表不存在，可能连错库了", "expectedCaseNo": "ERR-MYSQL-0003", "split": "holdout"}
+{"query": "并发更新时数据库报死锁，事务被回滚", "expectedCaseNo": "ERR-MYSQL-0004", "split": "dev"}
+{"query": "两个事务同时改同一批数据，日志提示 Deadlock found", "expectedCaseNo": "ERR-MYSQL-0004", "split": "test"}
+{"query": "高并发下偶尔出现 MySQL 死锁，接口报事务回滚", "expectedCaseNo": "ERR-MYSQL-0004", "split": "holdout"}
+{"query": "Mapper 方法调用时报参数名找不到", "expectedCaseNo": "ERR-MYBATIS-0002", "split": "dev"}
+{"query": "MyBatis XML 里的参数名和 Mapper 方法对不上，报 BindingException", "expectedCaseNo": "ERR-MYBATIS-0002", "split": "test"}
+{"query": "查询接口报 Parameter not found，可能是多参数没加注解", "expectedCaseNo": "ERR-MYBATIS-0002", "split": "holdout"}
+{"query": "遍历列表时删除元素，程序报并发修改异常", "expectedCaseNo": "ERR-JAVA-0005", "split": "dev"}
+{"query": "for 循环里修改集合，抛出 ConcurrentModificationException", "expectedCaseNo": "ERR-JAVA-0005", "split": "test"}
+{"query": "边遍历边删除数据时应用报错，提示集合被修改", "expectedCaseNo": "ERR-JAVA-0005", "split": "holdout"}
