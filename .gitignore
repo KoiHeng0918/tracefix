@@ -47,3 +47,5 @@ eval/build_svg_charts.py
 ### Local development-only scripts ###
 ai/scripts/check_cases.py
 ai/scripts/query_faiss.py
+
+ai/scripts/seed_common_cases.py
