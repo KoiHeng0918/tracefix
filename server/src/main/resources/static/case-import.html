@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TraceFix - 导入案例</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+            max-width: 980px;
+            margin: 40px auto;
+            padding: 0 16px;
+            color: #222;
+        }
+        h1 { margin-bottom: 4px; }
+        .muted { color: #777; margin-top: 0; }
+        .topbar { margin-bottom: 24px; }
+        .topbar a {
+            display: inline-block;
+            margin-right: 14px;
+            color: #0969da;
+            text-decoration: none;
+        }
+        .topbar a:hover { text-decoration: underline; }
+        .card {
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 18px;
+            margin-top: 18px;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 14px 18px;
+        }
+        .field { display: flex; flex-direction: column; gap: 5px; }
+        .field.full { grid-column: 1 / -1; }
+        label { font-size: 13px; font-weight: 600; }
+        input, select, textarea {
+            box-sizing: border-box;
+            width: 100%;
+            padding: 8px 10px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            font: inherit;
+            font-size: 13px;
+        }
+        textarea { min-height: 82px; resize: vertical; }
+        button {
+            padding: 9px 18px;
+            cursor: pointer;
+            border: 1px solid #0969da;
+            border-radius: 6px;
+            background: #0969da;
+            color: #fff;
+            font: inherit;
+        }
+        button:disabled { opacity: 0.6; cursor: not-allowed; }
+        .actions { margin-top: 16px; display: flex; gap: 10px; align-items: center; }
+        pre {
+            background: #f6f8fa;
+            padding: 12px;
+            overflow: auto;
+            border-radius: 6px;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+        @media (max-width: 720px) {
+            .grid { grid-template-columns: 1fr; }
+            .field.full { grid-column: auto; }
+        }
+    </style>
+</head>
+<body>
+<div class="topbar">
+    <a href="/">← 返回报错诊断</a>
+    <a href="/case-list.html">案例列表</a>
+</div>
+
+<h1>导入案例</h1>
+<p class="muted">
+    导入后案例状态为 <strong>DRAFT</strong>，审核为 ACTIVE 后才会进入检索池。
+</p>
+
+<form id="caseForm" class="card">
+    <div class="grid">
+        <div class="field">
+            <label for="caseNo">案例编号 *</label>
+            <input id="caseNo" required placeholder="例如 ERR-SPRING-0006">
+        </div>
+        <div class="field">
+            <label for="title">标题 *</label>
+            <input id="title" required placeholder="例如 Redis 连接失败">
+        </div>
+
+        <div class="field">
+            <label for="category">分类 *</label>
+            <input id="category" required placeholder="例如 spring / mysql / redis / jvm">
+        </div>
+        <div class="field">
+            <label for="exceptionType">异常全类名 *</label>
+            <input id="exceptionType" required placeholder="例如 java.lang.NullPointerException">
+        </div>
+
+        <div class="field full">
+            <label for="messagePattern">异常消息模式 *</label>
+            <input id="messagePattern" required placeholder="例如 Unable to connect to Redis">
+        </div>
+
+        <div class="field">
+            <label for="techStack">技术栈 *</label>
+            <input id="techStack" required placeholder="例如 Spring Boot 3.x + Redis">
+        </div>
+        <div class="field">
+            <label for="versionScope">适用版本</label>
+            <input id="versionScope" placeholder="未验证">
+        </div>
+
+        <div class="field full">
+            <label for="symptom">现象 / 堆栈摘要 *</label>
+            <textarea id="symptom" required placeholder="用户看到的报错现象"></textarea>
+        </div>
+
+        <div class="field full">
+            <label for="rootCause">根因 *</label>
+            <textarea id="rootCause" required placeholder="造成该报错的具体原因"></textarea>
+        </div>
+
+        <div class="field full">
+            <label for="fixSteps">修复步骤 *</label>
+            <textarea id="fixSteps" required placeholder="1. ...&#10;2. ..."></textarea>
+        </div>
+
+        <div class="field full">
+            <label for="verification">验证方式 *</label>
+            <textarea id="verification" required placeholder="如何确认问题已经修复"></textarea>
+        </div>
+
+        <div class="field">
+            <label for="source">来源 *</label>
+            <input id="source" required value="自己项目" placeholder="自己项目 / 公开常见错误整理 / 官方文档">
+        </div>
+        <div class="field">
+            <label for="sourceUrl">来源链接</label>
+            <input id="sourceUrl" placeholder="可选">
+        </div>
+
+        <div class="field full">
+            <label for="license">许可证 / 使用说明</label>
+            <input id="license" placeholder="可选">
+        </div>
+    </div>
+
+    <div class="actions">
+        <button id="submitBtn" type="submit">导入案例</button>
+        <span class="muted">带 * 的字段必填</span>
+    </div>
+</form>
+
+<div class="card">
+    <h3>导入结果</h3>
+    <pre id="result">还没有提交。</pre>
+</div>
+
+<script>
+    const form = document.getElementById('caseForm');
+    const submitBtn = document.getElementById('submitBtn');
+    const result = document.getElementById('result');
+
+    function value(id) {
+        return document.getElementById(id).value.trim();
+    }
+
+    form.addEventListener('submit', async (event) => {
+        event.preventDefault();
+
+        if (!form.reportValidity()) {
+            return;
+        }
+
+        const payload = {
+            caseNo: value('caseNo'),
+            title: value('title'),
+            category: value('category'),
+            exceptionType: value('exceptionType'),
+            messagePattern: value('messagePattern'),
+            techStack: value('techStack'),
+            versionScope: value('versionScope'),
+            symptom: value('symptom'),
+            rootCause: value('rootCause'),
+            fixSteps: value('fixSteps'),
+            verification: value('verification'),
+            source: value('source'),
+            sourceUrl: value('sourceUrl'),
+            license: value('license')
+        };
+
+        submitBtn.disabled = true;
+        result.textContent = '导入中...';
+
+        try {
+            const response = await fetch('/case/import', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(payload)
+            });
+            const json = await response.json();
+
+            if (json.code === 0) {
+                result.innerHTML =
+                    `导入成功。<br>案例 ID：${json.data}<br>当前状态：DRAFT<br>` +
+                    '请审核为 ACTIVE 后再重建索引，案例才会进入检索池。<br>' +
+                    '<a href="/case-list.html">去案例列表审核</a>';
+            } else {
+                result.textContent = json.message || JSON.stringify(json, null, 2);
+            }
+        } catch (error) {
+            result.textContent = '请求失败：' + error;
+        } finally {
+            submitBtn.disabled = false;
+        }
+    });
+</script>
+</body>
+</html>

@@ -1,0 +1,377 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TraceFix - 案例列表</title>
+    <style>
+        :root {
+            --bg: #f6f8fb;
+            --surface: #fff;
+            --line: #dfe5ee;
+            --text: #1f2937;
+            --muted: #667085;
+            --blue: #0969da;
+            --green: #18794e;
+            --green-soft: #eaf7ef;
+            --amber: #9a6700;
+            --amber-soft: #fff7df;
+            --red: #b42318;
+            --red-soft: #fff0ee;
+        }
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            background: var(--bg);
+            color: var(--text);
+            font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+        }
+        .page { max-width: 1180px; margin: 0 auto; padding: 36px 20px 56px; }
+        .topbar { display: flex; gap: 18px; margin-bottom: 22px; font-size: 14px; }
+        .topbar a { color: var(--blue); text-decoration: none; }
+        .topbar a:hover { text-decoration: underline; }
+        h1 { margin: 0 0 6px; font-size: 30px; }
+        .muted { color: var(--muted); }
+        .toolbar {
+            display: flex; justify-content: space-between; align-items: center;
+            gap: 12px; margin: 22px 0 12px; flex-wrap: wrap;
+        }
+        .toolbar select, .toolbar button {
+            padding: 8px 11px; border: 1px solid var(--line); border-radius: 7px;
+            background: var(--surface); font: inherit; font-size: 13px;
+        }
+        .toolbar button { cursor: pointer; }
+        .card {
+            background: var(--surface); border: 1px solid var(--line);
+            border-radius: 12px; box-shadow: 0 6px 18px rgba(15, 23, 42, .05);
+            overflow: hidden;
+        }
+        table { width: 100%; border-collapse: collapse; font-size: 14px; }
+        th, td { padding: 13px 14px; border-bottom: 1px solid var(--line); text-align: left; }
+        th { background: #f8fafc; color: #475467; font-size: 12px; white-space: nowrap; }
+        tr:last-child td { border-bottom: 0; }
+        tr:hover td { background: #fbfdff; }
+        .case-no { font-family: Consolas, monospace; font-size: 12px; color: #344054; }
+        .status {
+            display: inline-block; padding: 3px 8px; border-radius: 999px;
+            font-size: 11px; font-weight: 700;
+        }
+        .status-DRAFT { background: var(--amber-soft); color: var(--amber); }
+        .status-REVIEW { background: #eef4ff; color: var(--blue); }
+        .status-ACTIVE { background: var(--green-soft); color: var(--green); }
+        .status-DEPRECATED { background: var(--red-soft); color: var(--red); }
+        .action-btn {
+            padding: 6px 10px; border: 1px solid var(--line); border-radius: 6px;
+            background: #fff; cursor: pointer; font: inherit; font-size: 12px;
+            margin-right: 6px;
+        }
+        .action-btn.primary { border-color: var(--blue); color: var(--blue); }
+        .empty { padding: 36px; text-align: center; color: var(--muted); }
+        .detail {
+            margin-top: 18px; padding: 20px; display: none;
+            background: var(--surface); border: 1px solid var(--line);
+            border-radius: 12px; box-shadow: 0 6px 18px rgba(15, 23, 42, .05);
+        }
+        .detail.visible { display: block; }
+        .detail-head {
+            display: flex; justify-content: space-between; gap: 16px;
+            align-items: flex-start; margin-bottom: 14px;
+        }
+        .detail-head h2 { margin: 0; font-size: 20px; }
+        .detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 20px; }
+        .detail-field.full { grid-column: 1 / -1; }
+        .detail-field label {
+            display: block; color: var(--muted); font-size: 12px; margin-bottom: 3px;
+        }
+        .detail-field div, .detail-field textarea {
+            font-size: 13px; line-height: 1.55; white-space: pre-wrap;
+            word-break: break-word;
+        }
+        .detail-field textarea {
+            width: 100%; min-height: 86px; padding: 8px 10px;
+            border: 1px solid var(--line); border-radius: 6px; font: inherit; resize: vertical;
+        }
+        .review-actions {
+            display: flex; gap: 10px; align-items: center; margin-top: 16px;
+        }
+        .review-actions button {
+            padding: 8px 14px; border: 1px solid var(--blue); border-radius: 6px;
+            background: var(--blue); color: #fff; cursor: pointer; font: inherit;
+        }
+        .review-actions button:disabled { opacity: .6; cursor: not-allowed; }
+        .message { margin-top: 12px; font-size: 13px; white-space: pre-wrap; }
+        .message.error { color: var(--red); }
+        .message.success { color: var(--green); }
+        @media (max-width: 760px) {
+            .detail-grid { grid-template-columns: 1fr; }
+            .detail-field.full { grid-column: auto; }
+            .card { overflow-x: auto; }
+            table { min-width: 720px; }
+        }
+    </style>
+</head>
+<body>
+<div class="page">
+    <div class="topbar">
+        <a href="/">← 返回报错诊断</a>
+        <a href="/case-import.html">+ 导入新案例</a>
+    </div>
+
+    <h1>案例列表</h1>
+    <p class="muted">DRAFT 案例需要审核为 ACTIVE，重建索引后才会进入检索池。</p>
+
+    <div class="toolbar">
+        <div>
+            <label class="muted" for="statusFilter">状态：</label>
+            <select id="statusFilter" onchange="renderCases()">
+                <option value="ALL">全部</option>
+                <option value="DRAFT">DRAFT</option>
+                <option value="REVIEW">REVIEW</option>
+                <option value="ACTIVE">ACTIVE</option>
+                <option value="DEPRECATED">DEPRECATED</option>
+            </select>
+        </div>
+        <button onclick="loadCases()">刷新</button>
+    </div>
+
+    <div class="card">
+        <table>
+            <thead>
+            <tr>
+                <th>ID</th>
+                <th>案例编号</th>
+                <th>标题</th>
+                <th>分类</th>
+                <th>状态</th>
+                <th>操作</th>
+            </tr>
+            </thead>
+            <tbody id="caseRows">
+            <tr><td colspan="6" class="empty">加载中...</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <section id="detail" class="detail">
+        <div class="detail-head">
+            <div>
+                <h2 id="detailTitle">案例详情</h2>
+                <div id="detailMeta" class="muted"></div>
+            </div>
+            <button class="action-btn" onclick="closeDetail()">关闭</button>
+        </div>
+
+        <div class="detail-grid">
+            <div class="detail-field">
+                <label>异常类型</label>
+                <div id="detailException"></div>
+            </div>
+            <div class="detail-field">
+                <label>消息模式</label>
+                <div id="detailPattern"></div>
+            </div>
+            <div class="detail-field">
+                <label>技术栈</label>
+                <div id="detailTech"></div>
+            </div>
+            <div class="detail-field">
+                <label>来源</label>
+                <div id="detailSource"></div>
+            </div>
+            <div class="detail-field full">
+                <label>现象 / 堆栈摘要</label>
+                <div id="detailSymptom"></div>
+            </div>
+            <div class="detail-field full">
+                <label>根因</label>
+                <div id="detailRootCauseText"></div>
+                <textarea id="detailRootCause" style="display:none"></textarea>
+            </div>
+            <div class="detail-field full">
+                <label>修复步骤</label>
+                <div id="detailFixStepsText"></div>
+                <textarea id="detailFixSteps" style="display:none"></textarea>
+            </div>
+            <div class="detail-field full">
+                <label>验证方式</label>
+                <div id="detailVerificationText"></div>
+                <textarea id="detailVerification" style="display:none"></textarea>
+            </div>
+        </div>
+
+        <div class="review-actions" id="reviewActions" style="display:none">
+            <button id="approveBtn" onclick="approveCase()">通过审核 → ACTIVE</button>
+            <span class="muted">审核前可以修改根因、修复步骤和验证方式。</span>
+        </div>
+        <div id="reviewMessage" class="message"></div>
+    </section>
+</div>
+
+<script>
+    let cases = [];
+    let selectedCase = null;
+
+    function escapeHtml(value) {
+        return String(value ?? '')
+            .replaceAll('&', '&amp;')
+            .replaceAll('<', '&lt;')
+            .replaceAll('>', '&gt;')
+            .replaceAll('"', '&quot;')
+            .replaceAll("'", '&#039;');
+    }
+
+    function statusBadge(status) {
+        const safe = escapeHtml(status || 'UNKNOWN');
+        return `<span class="status status-${safe}">${safe}</span>`;
+    }
+
+    async function loadCases() {
+        const rows = document.getElementById('caseRows');
+        rows.innerHTML = '<tr><td colspan="6" class="empty">加载中...</td></tr>';
+        try {
+            const response = await fetch('/case/list');
+            const json = await response.json();
+            if (json.code !== 0) {
+                rows.innerHTML = `<tr><td colspan="6" class="empty">${escapeHtml(json.message || '加载失败')}</td></tr>`;
+                return;
+            }
+            cases = json.data || [];
+            renderCases();
+        } catch (error) {
+            rows.innerHTML = `<tr><td colspan="6" class="empty">请求失败：${escapeHtml(error)}</td></tr>`;
+        }
+    }
+
+    function renderCases() {
+        const rows = document.getElementById('caseRows');
+        const filter = document.getElementById('statusFilter').value;
+        const visible = cases.filter(item => filter === 'ALL' || item.status === filter);
+
+        if (!visible.length) {
+            rows.innerHTML = '<tr><td colspan="6" class="empty">没有符合条件的案例</td></tr>';
+            return;
+        }
+
+        rows.innerHTML = visible.map(item => {
+            const canReview = item.status === 'DRAFT' || item.status === 'REVIEW';
+            const reviewButton = canReview
+                ? `<button class="action-btn primary" onclick="openDetail(${item.id})">审核</button>`
+                : '';
+            return `<tr>
+                <td>${item.id}</td>
+                <td class="case-no">${escapeHtml(item.caseNo)}</td>
+                <td>${escapeHtml(item.title)}</td>
+                <td>${escapeHtml(item.category)}</td>
+                <td>${statusBadge(item.status)}</td>
+                <td>
+                    <button class="action-btn" onclick="openDetail(${item.id})">查看</button>
+                    ${reviewButton}
+                </td>
+            </tr>`;
+        }).join('');
+    }
+
+    async function openDetail(id) {
+        const detail = document.getElementById('detail');
+        const message = document.getElementById('reviewMessage');
+        message.textContent = '';
+        message.className = 'message';
+        detail.classList.add('visible');
+
+        try {
+            const response = await fetch(`/case/detail?id=${encodeURIComponent(id)}`);
+            const json = await response.json();
+            if (json.code !== 0) {
+                message.textContent = json.message || '加载详情失败';
+                message.classList.add('error');
+                return;
+            }
+            selectedCase = json.data;
+            renderDetail(selectedCase);
+            detail.scrollIntoView({behavior: 'smooth', block: 'start'});
+        } catch (error) {
+            message.textContent = '请求失败：' + error;
+            message.classList.add('error');
+        }
+    }
+
+    function renderDetail(item) {
+        document.getElementById('detailTitle').textContent = item.title || '案例详情';
+        document.getElementById('detailMeta').innerHTML =
+            `<span class="case-no">${escapeHtml(item.caseNo)}</span> · ${statusBadge(item.status)}`;
+        document.getElementById('detailException').textContent = item.exceptionType || '';
+        document.getElementById('detailPattern').textContent = item.messagePattern || '';
+        document.getElementById('detailTech').textContent = item.techStack || '';
+        document.getElementById('detailSource').textContent = item.source || '';
+        document.getElementById('detailSymptom').textContent = item.symptom || '';
+
+        const canReview = item.status === 'DRAFT' || item.status === 'REVIEW';
+        setEditable('detailRootCause', 'detailRootCauseText', item.rootCause, canReview);
+        setEditable('detailFixSteps', 'detailFixStepsText', item.fixSteps, canReview);
+        setEditable('detailVerification', 'detailVerificationText', item.verification, canReview);
+        document.getElementById('reviewActions').style.display = canReview ? 'flex' : 'none';
+    }
+
+    function setEditable(textareaId, textId, value, editable) {
+        const textarea = document.getElementById(textareaId);
+        const text = document.getElementById(textId);
+        textarea.value = value || '';
+        textarea.style.display = editable ? 'block' : 'none';
+        text.textContent = value || '';
+        text.style.display = editable ? 'none' : 'block';
+    }
+
+    async function approveCase() {
+        if (!selectedCase) {
+            return;
+        }
+
+        const rootCause = document.getElementById('detailRootCause').value.trim();
+        const fixSteps = document.getElementById('detailFixSteps').value.trim();
+        const verification = document.getElementById('detailVerification').value.trim();
+        const message = document.getElementById('reviewMessage');
+        const button = document.getElementById('approveBtn');
+
+        button.disabled = true;
+        message.textContent = '审核中...';
+        message.className = 'message';
+
+        try {
+            const response = await fetch('/case/review', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    caseId: selectedCase.id,
+                    targetStatus: 'ACTIVE',
+                    rootCause,
+                    fixSteps,
+                    verification
+                })
+            });
+            const json = await response.json();
+            if (json.code === 0) {
+                message.textContent = '审核通过，案例已变为 ACTIVE。请重建索引后再用于检索。';
+                message.classList.add('success');
+                await loadCases();
+                await openDetail(selectedCase.id);
+            } else {
+                message.textContent = json.message || '审核失败';
+                message.classList.add('error');
+            }
+        } catch (error) {
+            message.textContent = '请求失败：' + error;
+            message.classList.add('error');
+        } finally {
+            button.disabled = false;
+        }
+    }
+
+    function closeDetail() {
+        document.getElementById('detail').classList.remove('visible');
+        selectedCase = null;
+    }
+
+    loadCases();
+</script>
+</body>
+</html>

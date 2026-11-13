@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="920" height="470" viewBox="0 0 920 470">
+<rect width="100%" height="100%" fill="#ffffff"/>
+<text x="62" y="34" font-family="Microsoft YaHei, Arial, sans-serif" font-size="22" font-weight="700" fill="#172033">端到端诊断评测</text>
+<text x="62" y="56" font-family="Microsoft YaHei, Arial, sans-serif" font-size="12" fill="#667085">65 条 query；helpful 允许 NEED_INFO，strict 要求 DIAGNOSED + 引用命中 + 字段完整</text>
+<line x1="62" y1="404.0" x2="896" y2="404.0" stroke="#e6ebf2" stroke-width="1"/>
+<text x="52" y="408.0" text-anchor="end" font-family="Arial" font-size="11" fill="#8a94a6">0.0</text>
+<line x1="62" y1="338.8" x2="896" y2="338.8" stroke="#e6ebf2" stroke-width="1"/>
+<text x="52" y="342.8" text-anchor="end" font-family="Arial" font-size="11" fill="#8a94a6">0.2</text>
+<line x1="62" y1="273.6" x2="896" y2="273.6" stroke="#e6ebf2" stroke-width="1"/>
+<text x="52" y="277.6" text-anchor="end" font-family="Arial" font-size="11" fill="#8a94a6">0.4</text>
+<line x1="62" y1="208.4" x2="896" y2="208.4" stroke="#e6ebf2" stroke-width="1"/>
+<text x="52" y="212.4" text-anchor="end" font-family="Arial" font-size="11" fill="#8a94a6">0.6</text>
+<line x1="62" y1="143.2" x2="896" y2="143.2" stroke="#e6ebf2" stroke-width="1"/>
+<text x="52" y="147.2" text-anchor="end" font-family="Arial" font-size="11" fill="#8a94a6">0.8</text>
+<line x1="62" y1="78.0" x2="896" y2="78.0" stroke="#e6ebf2" stroke-width="1"/>
+<text x="52" y="82.0" text-anchor="end" font-family="Arial" font-size="11" fill="#8a94a6">1.0</text>
+<rect x="99.5" y="223.4" width="91.7" height="180.6" rx="5" fill="#2563eb"/>
+<text x="145.4" y="214.4" text-anchor="middle" font-family="Arial" font-size="12" font-weight="700" fill="#344054">0.554</text>
+<text x="145.4" y="436" text-anchor="middle" font-family="Microsoft YaHei, Arial, sans-serif" font-size="12" fill="#344054">DIAGNOSED</text>
+<rect x="266.3" y="93.0" width="91.7" height="311.0" rx="5" fill="#0891b2"/>
+<text x="312.2" y="84.0" text-anchor="middle" font-family="Arial" font-size="12" font-weight="700" fill="#344054">0.954</text>
+<text x="312.2" y="436" text-anchor="middle" font-family="Microsoft YaHei, Arial, sans-serif" font-size="12" fill="#344054">citation_hit</text>
+<rect x="433.1" y="88.0" width="91.7" height="316.0" rx="5" fill="#0f766e"/>
+<text x="479.0" y="79.0" text-anchor="middle" font-family="Arial" font-size="12" font-weight="700" fill="#344054">0.969</text>
+<text x="479.0" y="436" text-anchor="middle" font-family="Microsoft YaHei, Arial, sans-serif" font-size="12" fill="#344054">fields_ok</text>
+<rect x="599.9" y="93.0" width="91.7" height="311.0" rx="5" fill="#16a34a"/>
+<text x="645.8" y="84.0" text-anchor="middle" font-family="Arial" font-size="12" font-weight="700" fill="#344054">0.954</text>
+<text x="645.8" y="436" text-anchor="middle" font-family="Microsoft YaHei, Arial, sans-serif" font-size="12" fill="#344054">helpful</text>
+<rect x="766.7" y="223.4" width="91.7" height="180.6" rx="5" fill="#d97706"/>
+<text x="812.6" y="214.4" text-anchor="middle" font-family="Arial" font-size="12" font-weight="700" fill="#344054">0.554</text>
+<text x="812.6" y="436" text-anchor="middle" font-family="Microsoft YaHei, Arial, sans-serif" font-size="12" fill="#344054">strict</text>
+</svg>

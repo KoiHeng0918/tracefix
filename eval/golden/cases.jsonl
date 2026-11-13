@@ -48,3 +48,18 @@
 {"query": "遍历列表时删除元素，程序报并发修改异常", "expectedCaseNo": "ERR-JAVA-0005", "split": "dev"}
 {"query": "for 循环里修改集合，抛出 ConcurrentModificationException", "expectedCaseNo": "ERR-JAVA-0005", "split": "test"}
 {"query": "边遍历边删除数据时应用报错，提示集合被修改", "expectedCaseNo": "ERR-JAVA-0005", "split": "holdout"}
+{"query": "项目启动时连不上 Redis，日志提示 Unable to connect to Redis", "expectedCaseNo": "ERR-REDIS-0001", "split": "dev"}
+{"query": "接口访问缓存时报 RedisConnectionFailureException，Redis 服务好像没启动", "expectedCaseNo": "ERR-REDIS-0001", "split": "test"}
+{"query": "本地 6379 端口的 Redis 没开，Spring 启动直接报连接失败", "expectedCaseNo": "ERR-REDIS-0001", "split": "holdout"}
+{"query": "数据库查不到记录，把 Integer 赋值给 int 时抛 NullPointerException", "expectedCaseNo": "ERR-JAVA-0006", "split": "dev"}
+{"query": "包装类型为 null 自动拆箱，程序报空指针", "expectedCaseNo": "ERR-JAVA-0006", "split": "test"}
+{"query": "查询结果为空，后面用 int 接收返回的 Integer 直接 NPE", "expectedCaseNo": "ERR-JAVA-0006", "split": "holdout"}
+{"query": "POST 请求体 JSON 少了一个引号，接口报 HttpMessageNotReadableException", "expectedCaseNo": "ERR-SPRING-0005", "split": "dev"}
+{"query": "Spring 接收请求参数时报 JSON parse error，反序列化失败", "expectedCaseNo": "ERR-SPRING-0005", "split": "test"}
+{"query": "前端传的 JSON 格式不对，后端报 HttpMessageNotReadableException", "expectedCaseNo": "ERR-SPRING-0005", "split": "holdout"}
+{"query": "从 Map 里取出 String 强转成 Integer，报 ClassCastException", "expectedCaseNo": "ERR-JAVA-0007", "split": "dev"}
+{"query": "Session 里存的类型和强转目标不一致，抛 ClassCastException", "expectedCaseNo": "ERR-JAVA-0007", "split": "test"}
+{"query": "Object 转具体类型时提示 String cannot be cast to Integer", "expectedCaseNo": "ERR-JAVA-0007", "split": "holdout"}
+{"query": "调用第三方接口一直没响应，最后报 Read timed out", "expectedCaseNo": "ERR-NET-0001", "split": "dev"}
+{"query": "RestTemplate 请求下游超时，抛 SocketTimeoutException", "expectedCaseNo": "ERR-NET-0001", "split": "test"}
+{"query": "第三方服务很慢，接口报 java.net.SocketTimeoutException", "expectedCaseNo": "ERR-NET-0001", "split": "holdout"}

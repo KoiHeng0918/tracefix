@@ -2,12 +2,31 @@ from typing import TypedDict
 from langchain.chat_models import init_chat_model
 from langchain_core.messages import SystemMessage, HumanMessage
 from langgraph.graph import END, StateGraph
+from retrieval.bm25_retriever import BM25Retriever
 from retrieval.case_retriever import CaseRetriever
+from retrieval.reranker import rerank_candidates
 from retrieval.vector_retriever import VectorRetriever
 import json
 
 vector_retriever = VectorRetriever()
+bm25_retriever = BM25Retriever()
 case_retriever = CaseRetriever()
+
+# 不同检索器的分数尺度不同，过滤阈值按来源配置。
+SCORE_THRESHOLDS = {
+    "vector": 5.0,
+    "bm25": 6.0,
+    "keyword": 5.0,
+}
+
+# 证据充分度门槛。vector 分数经过 0~10 缩放，
+# 0.55 约等于 vector top1 score >= 5.5。
+EVIDENCE_THRESHOLD = 0.55
+
+# 先过滤候选，再用 DeepSeek 做 Top1 重排。
+RERANK_ENABLED = True
+
+
 class DiagnosisState(TypedDict, total=False):
     # 用户粘贴的报错
     trace: str
@@ -21,6 +40,8 @@ class DiagnosisState(TypedDict, total=False):
     fingerprint: str
     # 检索到的完整候选案例列表
     candidates: list
+    # 当前候选来自哪个检索器：vector / bm25 / keyword
+    retrieval_source: str
     # 从候选案例中提取的案例编号
     matched_case_ids: list
     # 证据充分度分数（0-1），不是模型置信度
@@ -39,30 +60,45 @@ class DiagnosisState(TypedDict, total=False):
 # 检索阶段节点，负责检索符合的案例集
 # 处理状态中的candidates
 def retrieve(state: DiagnosisState) -> DiagnosisState:
+    candidates = []
+    source = "vector"
+
+    # 主路径：向量检索
     try:
         candidates = vector_retriever.retrieve(
             state["trace"],
             top_k=5,
         )
-        if not candidates:
+    except Exception:
+        candidates = []
+
+    # 第一次降级：BM25
+    if not candidates:
+        source = "bm25"
+        try:
+            candidates = bm25_retriever.retrieve(
+                state["trace"],
+                top_k=5,
+            )
+        except Exception:
+            candidates = []
+
+    # 最后兜底：原来的关键词检索
+    if not candidates:
+        source = "keyword"
+        try:
             candidates = case_retriever.retrieve(
                 state["exception"],
                 state["message"],
                 top_k=5,
             )
+        except Exception:
+            candidates = []
 
-        return {
-            "candidates": candidates,
-        }
-    except Exception:
-        candidates = case_retriever.retrieve(
-            state["exception"],
-            state["message"],
-            top_k=5,
-        )
-        return {
-            "candidates": candidates,
-        }
+    return {
+        "candidates": candidates,
+        "retrieval_source": source,
+    }
 
 # 证据判断阶段节点，负责判断分数最高的案例集是否合格
 # 处理了状态的evidence_score，missing_info
@@ -70,13 +106,15 @@ def assess_evidence(state: DiagnosisState) -> DiagnosisState:
     candidates = state.get("candidates", [])
 
     if candidates:
+        source = state.get("retrieval_source", "vector")
+        min_score = SCORE_THRESHOLDS.get(source, 5.0)
         top_candidate = candidates[0]
         top_score = top_candidate["score"]
         state["evidence_score"] = min(top_score / 10, 1.0)
 
         # 有匹配案例时
         # 对最高分案例过滤
-        if state["evidence_score"] >= 0.6:
+        if state["evidence_score"] >= EVIDENCE_THRESHOLD and top_score >= min_score:
             state["missing_info"] = []
         else:
             state["missing_info"] = ["检索的案例证据不足"]
@@ -108,10 +146,35 @@ def generate(state: DiagnosisState) -> DiagnosisState:
     # 上一节点仅对最高分判定
     # 对所有候选案例都进一步过滤
     # 过滤出候选案例
+    source = state.get("retrieval_source", "vector")
+    min_score = SCORE_THRESHOLDS.get(source, 5.0)
     candidates_text = []
     for candidate in candidates:
-        if candidate["score"] >= 5:
+        if candidate["score"] >= min_score:
             candidates_text.append(candidate)
+
+    if not candidates_text:
+        state["status"] = "NEED_INFO"
+        state["missing_info"] = ["候选案例分数不足"]
+        state["diagnosis"] = {}
+        return state
+
+    # 先按检索分数过滤，再对过滤后的候选做 Top1 重排。
+    # 重排只改变顺序，不引入新案例；失败时保留原顺序。
+    if RERANK_ENABLED and len(candidates_text) > 1:
+        try:
+            rerank_model = init_chat_model(
+                model="deepseek-chat",
+                model_provider="deepseek",
+                temperature=0,
+            )
+            candidates_text, _ = rerank_candidates(
+                rerank_model,
+                state["trace"],
+                candidates_text,
+            )
+        except Exception:
+            pass
 
     # 数据类型转换为json
     final_text = json.dumps(candidates_text, ensure_ascii=False)
@@ -145,7 +208,7 @@ def generate(state: DiagnosisState) -> DiagnosisState:
         data = json.loads(content)
     except Exception:
         # 模型返回格式异常时，降级为 top1 模板
-        top = candidates[0]
+        top = candidates_text[0]
 
         # 降级前检查top1核心字段是否齐全
 
@@ -172,7 +235,7 @@ def generate(state: DiagnosisState) -> DiagnosisState:
     if not data.get("missingInfo"):
         required_fields = ["rootCause", "fixSteps", "verification"]
         if any(not data.get(field) for field in required_fields):
-            top = candidates[0]
+            top = candidates_text[0]
             # 降级前检查top1核心字段是否齐全
             if not case_is_complete(top):
                 state["diagnosis"] = {}
@@ -193,7 +256,7 @@ def generate(state: DiagnosisState) -> DiagnosisState:
             return state
 
     state["diagnosis"] = {
-        "title": data.get("title") or candidates[0].get("title", ""),
+        "title": data.get("title") or candidates_text[0].get("title", ""),
         "rootCause": data.get("rootCause") or "",
         "fixSteps": data.get("fixSteps") or "",
         "verification": data.get("verification") or "",
@@ -242,7 +305,7 @@ def build_graph():
     graph.add_edge("retrieve", "assess")
 
     def route_after_assess(state: DiagnosisState) -> str:
-        if state.get("evidence_score", 0) >= 0.6:
+        if state.get("evidence_score", 0) >= EVIDENCE_THRESHOLD:
             return "generate"
         return "ask_or_abstain"
 

@@ -1,5 +1,6 @@
 package com.tracefix.service.impl;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.tracefix.common.BizException;
 import com.tracefix.dto.CasePromoteDTO;
 import com.tracefix.dto.CaseReviewDTO;
@@ -16,6 +17,10 @@ import org.springframework.util.StringUtils;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.HexFormat;
 import java.util.List;
 
 /**
@@ -36,17 +41,48 @@ public class ErrorCaseServiceImpl implements ErrorCaseService {
 
     /**
      * 手动导入一条案例。
-     * 当前用于种子数据，导入后直接 ACTIVE。
+     * 导入后先进入 DRAFT，审核通过后才进入 ACTIVE 检索池。
      */
     @Override
     public Long importCase(ErrorCaseCreateDTO dto) {
+        Long existing = qaErrorCaseMapper.selectCount(
+                new LambdaQueryWrapper<QaErrorCase>()
+                        .eq(QaErrorCase::getCaseNo, dto.getCaseNo())
+        );
+        if (existing != null && existing > 0) {
+            throw new BizException("案例编号已存在：" + dto.getCaseNo());
+        }
+
         QaErrorCase errorCase = new QaErrorCase();
         BeanUtils.copyProperties(dto, errorCase);
-        errorCase.setStatus("ACTIVE");
+        errorCase.setFingerprint(buildFingerprint(
+                errorCase.getExceptionType(),
+                errorCase.getMessagePattern()
+        ));
+        errorCase.setStatus("DRAFT");
         errorCase.setQualityScore(3);
         errorCase.setHitCount(0);
         qaErrorCaseMapper.insert(errorCase);
         return errorCase.getId();
+    }
+
+    /**
+     * 与 Python 端保持一致的案例指纹：
+     * v1|exceptionType|messagePattern|
+     */
+    private String buildFingerprint(String exceptionType, String messagePattern) {
+        String payload = "v1|"
+                + (exceptionType == null ? "" : exceptionType)
+                + "|"
+                + (messagePattern == null ? "" : messagePattern)
+                + "|";
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            byte[] hash = digest.digest(payload.getBytes(StandardCharsets.UTF_8));
+            return HexFormat.of().formatHex(hash);
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("SHA-256 不可用", e);
+        }
     }
 
     /** 查询全部案例。当前没有分页。 */

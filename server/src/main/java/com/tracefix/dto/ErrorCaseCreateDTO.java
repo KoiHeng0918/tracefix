@@ -62,8 +62,6 @@ public class ErrorCaseCreateDTO {
     /** 许可证/使用说明（可选） */
     private String license;
 
-    /** 报错指纹 */
-    @NotBlank(message = "指纹不可以为空")
-    private String fingerprint;
+
 
 }

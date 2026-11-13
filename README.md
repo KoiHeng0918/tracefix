@@ -2,7 +2,7 @@
 
 TraceFix 是一个面向 Java 开发者的报错诊断系统：粘贴真实报错后，系统解析堆栈、从结构化案例库中检索相似问题，生成带证据的诊断（原因、排查、修复、验证），并由人工确认修复是否有效。确认有效的案例回流到案例库，形成可复用的数据资产。
 
-> 当前阶段：Java ↔ Python 诊断链路已打通；Python 已接入 DeepSeek 结构化生成、Qwen Embedding、FAISS 向量检索和 LangGraph 编排；离线评测已建立 `dev/test/holdout` 三组数据。
+> 当前阶段：Java ↔ Python 诊断链路已打通；Python 已接入 DeepSeek 结构化生成、Qwen Embedding、FAISS 向量检索、Top1 重排和 LangGraph 编排；离线评测已建立 `dev/test/holdout` 三组数据。
 
 ## 解决什么问题
 
@@ -19,8 +19,9 @@ TraceFix 把“报错—原因—修复—验证”整理成结构化案例，�
 ```text
 提交报错
   → 解析异常类型 / 消息 / 指纹
-  → 关键词检索 baseline + 向量检索
+  → 向量检索（主）；失败时 BM25，再失败时关键词
   → 候选案例
+  → Top1 重排
   → LangGraph 编排
   → DeepSeek 生成结构化诊断：原因 / 修复 / 验证 / 引用
   → citations 白名单校验
@@ -33,34 +34,36 @@ TraceFix 把“报错—原因—修复—验证”整理成结构化案例，�
 | 模块 | 状态 | 说明 |
 |---|---|---|
 | 文档录入 | 已实现 | `POST /doc/upload`，P1 原始资料 |
-| 案例库 | 已实现 | 导入、列表、详情、审核、工单回流 |
+| 案例库 | 已实现 | 前端导入页、案例列表/详情、DRAFT → ACTIVE 审核、自动 fingerprint、caseNo 查重、工单回流 |
 | 诊断记录 | 已实现 | 创建、列表、详情、人工确认 |
 | Java → Python 通信 | 已实现 | `HttpAiClient` 调 FastAPI `/ai/diagnose` |
 | 堆栈解析 | 已实现 | 异常类型、归一化消息、指纹 |
 | Python 案例读取 | 已实现 | 从 MySQL 读取 `ACTIVE` 案例 |
-| 关键词检索 | 已实现 | 异常类型匹配 + 消息关键词打分，作为 baseline |
-| BM25 检索 | 实验完成 | 中文单字 + 二元组切分，作为更强的词面 baseline |
+| 关键词检索 | 已实现 | 异常类型匹配 + 消息关键词打分，作为最后兜底 |
+| BM25 检索 | 已接入降级 | 中文单字 + 二元组切分；向量失败或为空时接替 |
+| Top1 重排 | 已实现 | 向量 Top5 后用 DeepSeek 重排；失败回退原顺序 |
+| 端到端诊断评测 | 已实现 | 跑完整 graph，统计 DIAGNOSED、引用命中、字段完整和延迟 |
 | Embedding | 已实现 | 通义 `qwen3.7-text-embedding-flash`，1024 维 |
 | FAISS 向量检索 | 已实现 | `IndexFlatIP` + L2 归一化，保存 `faiss.index` 和 `case_ids.json` |
 | 诊断生成 | 已实现 | DeepSeek 输出结构化 JSON；包含字段完整性和引用校验 |
-| LangGraph 编排 | 已实现 | retrieve → assess → generate → validate；证据不足走 ask/abstain |
-| 黄金评测集 | 已建立 | 50 条：`dev 20 / test 15 / holdout 15` |
+| LangGraph 编排 | 已实现 | retrieve → assess → generate → validate；检索降级为 vector → BM25 → keyword |
+| 黄金评测集 | 已建立 | 65 条：`dev 25 / test 20 / holdout 20` |
 | Mock AI | 已实现 | `ai.mock=true` 时使用，便于离线调试 |
-| 前端页面 | 最小页面 | 提交报错、查看诊断、人工确认 |
+| 前端页面 | 最小页面 | 诊断、案例导入、案例列表与审核 |
 | RRF 混合检索 | 实验完成 | 离线对比无一致提升，暂不接入主流程 |
 | Redis / RabbitMQ | 规划中 | 缓存、限流、异步导入和重建索引 |
 
 ## 评测结果
 
-当前 50 条评测数据覆盖 17 个 `ACTIVE` 案例，使用 `Recall@5`、`Hit@1` 和 `MRR` 作为检索指标。新增案例来源标注为“公开常见错误整理”，后续可补充真实 issue 链接。
+当前 65 条评测数据覆盖 21 个 `ACTIVE` 案例，使用 `Recall@5`、`Hit@1` 和 `MRR` 作为检索指标。新增案例来源标注为“公开常见错误整理”，后续可补充真实 issue 链接。
 
 > baseline：先跑通的简单方案，作为后续方案的对照。本项目把关键词检索作为 baseline，向量检索的效果要和它比较。
 
 | split | cases | keyword Recall@5 | Hit@1 | MRR | vector Recall@5 | Hit@1 | MRR |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| dev | 20 | 0.35 | 0.30 | 0.325 | 1.00 | 0.80 | 0.900 |
-| test | 15 | 0.13 | 0.07 | 0.083 | 1.00 | 0.93 | 0.956 |
-| holdout | 15 | 0.13 | 0.13 | 0.133 | 1.00 | 0.80 | 0.889 |
+| dev | 25 | 0.40 | 0.36 | 0.380 | 1.00 | 0.92 | 0.960 |
+| test | 20 | 0.20 | 0.10 | 0.142 | 1.00 | 0.95 | 0.963 |
+| holdout | 20 | 0.30 | 0.30 | 0.300 | 1.00 | 0.80 | 0.900 |
 
 指标含义：
 
@@ -73,8 +76,16 @@ TraceFix 把“报错—原因—修复—验证”整理成结构化案例，�
 - 关键词检索按空格分词，对中文自然语言和英文 `message_pattern` 的跨语言匹配能力弱，所以分数低。
 - 向量检索通过 Embedding 把中文问题和英文案例映射到同一语义空间，因此对自然语言描述更稳定。
 - 向量检索 `Recall@5=1.00`，但 `Hit@1` 不是 1.00，说明正确案例不总是排第一，排序质量仍有提升空间。
-- 当前每组 15～20 条数据，指标只能说明当前样本上的效果，不能证明所有 Java 报错场景都有效。
+- 当前每组 20～25 条数据，指标只能说明当前样本上的效果，不能证明所有 Java 报错场景都有效。
 - `dev` 用于调参，`test` 用于方案比较，`holdout` 最后验收；不要根据 `test` 或 `holdout` 的逐条结果反复调参。
+
+### 评测图表
+
+| 检索总体 | dev |
+|---|---|
+| <img src="assets/eval/retrieval-overall.svg" width="100%"> | <img src="assets/eval/retrieval-dev.svg" width="100%"> |
+| **test** | **holdout** |
+| <img src="assets/eval/retrieval-test.svg" width="100%"> | <img src="assets/eval/retrieval-holdout.svg" width="100%"> |
 
 ### BM25 对比
 
@@ -82,15 +93,15 @@ TraceFix 把“报错—原因—修复—验证”整理成结构化案例，�
 
 | split | keyword Recall@5 | bm25 Recall@5 | bm25 Hit@1 | bm25 MRR | vector Recall@5 |
 |---|---:|---:|---:|---:|---:|
-| dev | 0.35 | 1.00 | 0.80 | 0.879 | 1.00 |
-| test | 0.13 | 1.00 | 0.87 | 0.922 | 1.00 |
-| holdout | 0.13 | 0.93 | 0.80 | 0.850 | 1.00 |
+| dev | 0.40 | 0.96 | 0.84 | 0.893 | 1.00 |
+| test | 0.20 | 1.00 | 0.90 | 0.933 | 1.00 |
+| holdout | 0.30 | 0.90 | 0.80 | 0.850 | 1.00 |
 
 结论：
 
 - BM25 明显强于原来的关键词规则，说明中文切分和 IDF/长度归一化有效。
-- BM25 仍然略低于向量检索：holdout Recall@5 为 0.93，MRR 为 0.850。
-- 当前不把 BM25 接入主流程；它作为更强的词面 baseline 和后续 BM25 + 向量融合的候选。
+- BM25 仍然略低于向量检索：holdout Recall@5 为 0.90，MRR 为 0.850。
+- BM25 不替代向量主路径，但已接入向量失败/为空时的第一层降级；关键词保留为最后兜底。
 
 ### BM25 + 向量 RRF
 
@@ -98,15 +109,113 @@ TraceFix 把“报错—原因—修复—验证”整理成结构化案例，�
 
 | split | vector Hit@1 | vector MRR | bm25+vec Hit@1 | bm25+vec MRR |
 |---|---:|---:|---:|---:|
-| dev | 0.80 | 0.900 | 0.85 | 0.917 |
-| test | 0.93 | 0.956 | 0.93 | 0.967 |
-| holdout | 0.80 | 0.889 | 0.80 | 0.883 |
+| dev | 0.92 | 0.960 | 0.92 | 0.950 |
+| test | 0.95 | 0.963 | 0.85 | 0.925 |
+| holdout | 0.80 | 0.900 | 0.80 | 0.883 |
 
 结论：
 
-- BM25 + 向量在 dev/test 上略优于纯向量，平均 Hit@1 从 0.84 提升到 0.86，MRR 从 0.915 提升到 0.922。
-- holdout 的 MRR 略低，说明提升还不稳定。
+- 补入新案例后，BM25 + 向量没有超过纯向量：dev 的 Hit@1 持平但 MRR 更低，test 和 holdout 也没有稳定提升。
+- 说明之前的轻微优势主要来自旧样本，样本变化后不能复现。
 - 当前不接入主流程；保留为可选检索策略，后续补数据后再验证。
+
+### Top1 重排
+
+实现方式：向量检索 Top5 后，把候选案例的 `case_no / title / message_pattern / root_cause` 交给 DeepSeek，让它只返回候选的新顺序。重排失败、返回非法 JSON 或 case_no 集合不一致时，保留原始顺序。
+
+运行离线对比：
+
+```bash
+ai/.venv/Scripts/python.exe eval/rerank_eval.py --split dev
+```
+
+结果：
+
+| split | vector Hit@1 | rerank Hit@1 | vector MRR | rerank MRR |
+|---|---:|---:|---:|---:|
+| dev | 0.920 | 0.960 | 0.960 | 0.980 |
+| test | 0.950 | 1.000 | 0.963 | 1.000 |
+| holdout | 0.800 | 1.000 | 0.900 | 1.000 |
+
+![Top1 重排前后对比](assets/eval/rerank.svg)
+
+结论：
+
+- 65 条重排输出全部合法，Recall@5 保持 1.00。
+- 整体 Hit@1 从 0.892 提升到 0.985，MRR 从 0.942 提升到 0.992。
+- 三组都提升，但 dev 有 1 条从第 1 名降到第 2 名，属于个别回退，整体仍明显提升。
+- 单次重排平均约 0.9 秒，会在生成前增加一次 DeepSeek 调用。
+- 已接入 `generate`：先按检索阈值过滤候选，再重排；`assess_evidence` 仍用重排前的检索 top1 判断证据，避免低分候选被重排后误判。
+
+### 端到端诊断评测
+
+检索评测只检查 Top5/Top1，端到端评测会跑完整 LangGraph：
+
+```text
+query
+→ 检索
+→ 重排
+→ assess
+→ generate
+→ validate
+```
+
+先跑 3 条 smoke：
+
+```bash
+ai/.venv/Scripts/python.exe eval/diagnosis_eval.py --split dev --limit 3
+```
+
+指标：
+
+- `DIAGNOSED`：最终状态是否为 `DIAGNOSED`，这是严格口径。
+- `citation_hit`：`matchedCaseIds` 是否包含 `expectedCaseNo`。
+- `fields_complete`：`rootCause`、`fixSteps`、`verification` 是否都非空。
+- `helpful`：引用命中且字段完整，允许状态是 `NEED_INFO`。
+- `strict`：`DIAGNOSED` + 引用命中 + 字段完整。
+
+`NEED_INFO` 不一定代表链路失败。如果模型给出了正确引用和完整诊断，只是要求补充版本或堆栈，`helpful` 仍算成功。
+
+证据门槛 `EVIDENCE_THRESHOLD=0.55` 时，清理后的完整 65 条结果：
+
+| split | cases | DIAGNOSED | citation_hit | fields_ok | helpful | strict | avg_ms | p95_ms |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| dev | 25 | 0.520 | 1.000 | 1.000 | 1.000 | 0.520 | 2615 | 3561 |
+| test | 20 | 0.650 | 0.850 | 0.900 | 0.850 | 0.650 | 2234 | 4021 |
+| holdout | 20 | 0.500 | 1.000 | 1.000 | 1.000 | 0.500 | 2364 | 3065 |
+| all | 65 | 0.554 | 0.954 | 0.969 | 0.954 | 0.554 | 2420 | 3824 |
+
+![端到端诊断评测](assets/eval/diagnosis-e2e.svg)
+
+失败分析：
+
+- 3/65 条 `helpful=False`：
+  - test `ERR-SPRING-0001`：引用校验失败，有字段但没有有效引用。
+  - test `ERR-SPRING-0003`、test `ERR-JAVA-0003`：仍在 `assess` 阶段被证据门槛拦截。
+- `strict` 仍为 0.554，主要因为模型会主动返回 `NEED_INFO`，不完全代表链路失败。
+- 逐条结果由评测脚本运行时输出，不提交生成文件。
+
+### 评测命令
+
+检索评测：
+
+```bash
+ai/.venv/Scripts/python.exe eval/run_eval.py --split dev
+```
+
+重排评测：
+
+```bash
+ai/.venv/Scripts/python.exe eval/rerank_eval.py --split dev
+```
+
+端到端诊断评测：
+
+```bash
+ai/.venv/Scripts/python.exe eval/diagnosis_eval.py --split dev --limit 3
+```
+
+评测图表保存在 `assets/eval/`，不依赖 Java 或 FastAPI 运行。
 
 ### RRF 混合检索实验
 
@@ -114,14 +223,15 @@ TraceFix 把“报错—原因—修复—验证”整理成结构化案例，�
 
 | split | vector Hit@1 | vector MRR | hybrid Hit@1 | hybrid MRR |
 |---|---:|---:|---:|---:|
-| dev | 0.80 | 0.900 | 0.80 | 0.900 |
-| test | 0.93 | 0.956 | 0.87 | 0.922 |
-| holdout | 0.80 | 0.889 | 0.87 | 0.922 |
+| dev | 0.92 | 0.960 | 0.88 | 0.940 |
+| test | 0.95 | 0.963 | 0.85 | 0.912 |
+| holdout | 0.80 | 0.900 | 0.85 | 0.925 |
 
 结论：
 
 - dev 持平，test 变差，holdout 变好，整体没有一致提升。
 - 关键词检索本身噪声较大，RRF 会把它的错误排名带进融合结果。
+- 关键词经常返回空，所以“关键词 + 向量 RRF”多数时候接近纯向量；BM25 每次都返回 Top5，等权融合时反而更容易把错误候选顶上来。
 - 当前数据量小，暂不把 RRF 接入 `diagnosis_graph`；保留为离线实验和后续优化方向。
 
 ## 技术架构
@@ -137,8 +247,10 @@ Java 主服务（Spring Boot + MyBatis-Plus）
    │                    Python AI 服务（FastAPI）
    │                      ├─ 堆栈解析 / 指纹
    │                      ├─ MySQL ACTIVE 案例读取
-   │                      ├─ 关键词检索（baseline）
-   │                      ├─ VectorRetriever + FAISS
+   │                      ├─ VectorRetriever + FAISS（主）
+   │                      ├─ BM25Retriever（第一层降级）
+   │                      ├─ CaseRetriever（最后兜底）
+   │                      ├─ Reranker（Top1 重排）
    │                      └─ LangGraph + DeepSeek
    │
 MySQL（事实来源）
@@ -158,7 +270,8 @@ Java 负责业务状态和数据库写入，Python 负责解析、检索和模�
 - Embedding：通义 `qwen3.7-text-embedding-flash`，1024 维
 - 向量索引：FAISS `IndexFlatIP`（L2 归一化后等价余弦相似度）
 - 前端：单文件 HTML + JS，同源部署
-- 规划中：RRF、Redis、RabbitMQ
+- 已做离线实验：RRF
+- 规划中：Redis、RabbitMQ
 
 ## 数据模型
 
@@ -319,25 +432,25 @@ ai.mock=false → HttpAiClient → Python /ai/diagnose
 
 ```text
 tracefix/
-├── docs/
-│   ├── PRD.md               产品需求说明书
-│   └── FEATURE_MATRIX.md    功能矩阵
+├── assets/eval/             检索、重排、端到端评测 SVG
 ├── ai/                      Python AI 服务
 │   ├── main.py              FastAPI 入口
 │   ├── parsers/             堆栈解析 / 指纹
-│   ├── retrieval/           MySQL 案例读取、关键词检索、向量检索
+│   ├── retrieval/           MySQL 案例读取、BM25、向量、RRF 与重排
 │   │   ├── case_repository.py
 │   │   ├── case_retriever.py
 │   │   ├── vector_retriever.py
+│   │   ├── reranker.py      Top1 重排
 │   │   ├── embedding_client.py
 │   │   └── index/           faiss.index / case_ids.json
 │   ├── graph/               LangGraph 诊断编排
 │   ├── scripts/             建索引、查询验证等开发脚本（不参与运行时）
 │   └── tests/               Python 单元测试
 ├── eval/                    评测脚本与黄金集
-│   ├── README.md            评测说明
-│   ├── run_eval.py          评测入口
-│   └── golden/cases.jsonl   50 条评测数据
+│   ├── run_eval.py          检索评测入口
+│   ├── rerank_eval.py       Top1 重排离线对比
+│   ├── diagnosis_eval.py    端到端诊断评测
+│   └── golden/cases.jsonl   65 条评测数据
 ├── server/
 │   ├── sql/
 │   │   ├── schema.sql       三张核心表
@@ -352,15 +465,20 @@ tracefix/
 │       │   ├── entity/      实体
 │       │   ├── mapper/      Mapper
 │       │   └── service/     业务层
-│       └── resources/static/index.html  最小前端页
+│       └── resources/static/
+│           ├── index.html             报错诊断页
+│           ├── case-import.html       案例导入页
+│           └── case-list.html         案例列表 / 审核页
 └── README.md
 ```
 
 ## 当前限制
 
-- `ACTIVE` 案例只有 17 条，评测集只有 50 条，样本规模仍然小。
+- `ACTIVE` 案例只有 21 条，评测集只有 65 条，样本规模仍然小。
+- Top1 重排会在生成前增加一次 DeepSeek 调用，平均约 0.9 秒。
+- 端到端评测中仍有 3/65 条被 `assess` 证据门槛拦截，后续需要继续校准低置信度处理。
 - 向量检索在这批数据上 `Recall@5=1.00`，不能直接外推到所有 Java 报错。
-- 还没有做关键词与向量的 RRF 融合。
+- RRF 已做离线对比，但没有稳定提升，暂未接入主流程。
 - Redis / RabbitMQ 还没有接入。
 - 没有多用户、登录、权限系统和正式部署。
 - FAISS 索引是派生数据，案例变化后需要重新构建。
@@ -388,7 +506,7 @@ tracefix/
 ### P2：把效果做成可证明的
 
 - 补充更多真实案例和评测数据
-- 关键词 + 向量 RRF 融合
+- RRF 融合稳定性、加权 RRF
 - Recall@5、MRR、Top1 准确率、引用正确率
 - CI 分层回归
 - 部署和演示
@@ -399,9 +517,9 @@ tracefix/
 
 通用 Java 问答容易被通用大模型替代；报错诊断有具体输入、可验证结果、可沉淀案例，更适合做成一个有数据资产的项目。
 
-**为什么保留关键词检索？**
+**为什么保留 BM25 和关键词检索？**
 
-关键词检索是稳定、可解释、成本低的 baseline，也能在向量服务不可用时作为降级方案。向量检索负责语义泛化，后续可以用 RRF 融合两者排名。
+向量检索负责语义泛化，是主路径。BM25 不依赖 Embedding，评测效果明显强于原关键词规则，所以放在第一层降级；关键词检索最简单、最稳定，放在最后兜底。RRF 已做离线融合实验，但因为收益不稳定，暂不进入主流程。
 
 **为什么检索是证据层，不是产品本身？**
 

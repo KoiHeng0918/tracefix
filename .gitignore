@@ -33,3 +33,17 @@ logs/
 
 ### Local data ###
 data/local/
+
+### Personal docs / knowledge-base source ###
+docs/
+
+### Generated evaluation artifacts / helper generators ###
+eval/report.html
+eval/report.json
+eval/diagnosis_report*.json
+eval/build_report.py
+eval/build_svg_charts.py
+
+### Local development-only scripts ###
+ai/scripts/check_cases.py
+ai/scripts/query_faiss.py
