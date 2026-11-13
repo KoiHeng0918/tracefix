@@ -51,7 +51,6 @@ TraceFix 把“报错—原因—修复—验证”整理成结构化案例，�
 | Mock AI | 已实现 | `ai.mock=true` 时使用，便于离线调试 |
 | 前端页面 | 最小页面 | 诊断、案例导入、案例列表与审核 |
 | RRF 混合检索 | 实验完成 | 离线对比无一致提升，暂不接入主流程 |
-| Redis / RabbitMQ | 规划中 | 缓存、限流、异步导入和重建索引 |
 
 ## 评测结果
 
@@ -255,7 +254,6 @@ Java 主服务（Spring Boot + MyBatis-Plus）
    │
 MySQL（事实来源）
 FAISS index（可重建的派生索引）
-Redis / RabbitMQ（规划中）
 ```
 
 Java 负责业务状态和数据库写入，Python 负责解析、检索和模型调用。MySQL 是事实来源，FAISS 只作为可重建的派生索引。
@@ -271,7 +269,6 @@ Java 负责业务状态和数据库写入，Python 负责解析、检索和模�
 - 向量索引：FAISS `IndexFlatIP`（L2 归一化后等价余弦相似度）
 - 前端：HTML + JS 多页面（诊断 / 导入 / 审核），同源部署
 - 已做离线实验：RRF
-- 规划中：Redis、RabbitMQ
 
 ## 数据模型
 
@@ -459,7 +456,7 @@ tracefix/
 │       ├── java/com/tracefix/
 │       │   ├── client/      Mock AI / HTTP AI 客户端
 │       │   ├── common/      统一返回、异常处理
-│       │   ├── config/      MyBatis-Plus、RabbitMQ 配置
+│       │   ├── config/      MyBatis-Plus 配置
 │       │   ├── controller/  health / case / diagnosis
 │       │   ├── dto/         请求参数
 │       │   ├── entity/      实体
@@ -479,7 +476,6 @@ tracefix/
 - 端到端评测中仍有 3/65 条 `helpful=False`：2 条被 `assess` 证据门槛拦截，1 条引用校验失败。
 - 向量检索在这批数据上 `Recall@5=1.00`，不能直接外推到所有 Java 报错。
 - RRF 已做离线对比，但没有稳定提升，暂未接入主流程。
-- Redis / RabbitMQ 还没有接入。
 - 没有多用户、登录、权限系统和正式部署。
 - FAISS 索引是派生数据，案例变化后需要重新构建。
 

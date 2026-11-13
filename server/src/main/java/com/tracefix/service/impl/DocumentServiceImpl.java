@@ -10,7 +10,7 @@ import org.springframework.stereotype.Service;
 
 /**
  * 原始资料业务实现（P1）。
- * 当前只负责落库，不做向量化；后续可接 MQ 异步处理。
+ * 当前只负责落库，不做向量化。
  */
 @Service
 public class DocumentServiceImpl implements DocumentService {
@@ -24,7 +24,7 @@ public class DocumentServiceImpl implements DocumentService {
         BeanUtils.copyProperties(dto, doc);
         doc.setStatus("PENDING");
         qaDocumentMapper.insert(doc);
-        // P1：原始资料入库暂不接 MQ；诊断主链路不依赖文档上传。
+        // P1：原始资料仅入库；诊断主链路不依赖文档上传。
         return doc.getId();
     }
 }
