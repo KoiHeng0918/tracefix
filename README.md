@@ -59,7 +59,7 @@ TraceFix 把“报错—原因—修复—验证”整理成结构化案例，�
 
 > baseline：先跑通的简单方案，作为后续方案的对照。本项目把关键词检索作为 baseline，向量检索的效果要和它比较。
 
-| split | cases | keyword Recall@5 | Hit@1 | MRR | vector Recall@5 | Hit@1 | MRR |
+| split | cases | keyword Recall@5 | keyword Hit@1 | keyword MRR | vector Recall@5 | vector Hit@1 | vector MRR |
 |---|---:|---:|---:|---:|---:|---:|---:|
 | dev | 25 | 0.40 | 0.36 | 0.380 | 1.00 | 0.92 | 0.960 |
 | test | 20 | 0.20 | 0.10 | 0.142 | 1.00 | 0.95 | 0.963 |
@@ -91,16 +91,16 @@ TraceFix 把“报错—原因—修复—验证”整理成结构化案例，�
 
 实现方式：英文按单词、中文按单字 + 二元组切分，使用 BM25（`k1=1.5, b=0.75`）打分。
 
-| split | keyword Recall@5 | bm25 Recall@5 | bm25 Hit@1 | bm25 MRR | vector Recall@5 |
-|---|---:|---:|---:|---:|---:|
-| dev | 0.40 | 0.96 | 0.84 | 0.893 | 1.00 |
-| test | 0.20 | 1.00 | 0.90 | 0.933 | 1.00 |
-| holdout | 0.30 | 0.90 | 0.80 | 0.850 | 1.00 |
+| split | keyword Recall@5 | bm25 Recall@5 | bm25 Hit@1 | bm25 MRR | vector Recall@5 | vector Hit@1 | vector MRR |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| dev | 0.40 | 0.96 | 0.84 | 0.893 | 1.00 | 0.92 | 0.960 |
+| test | 0.20 | 1.00 | 0.90 | 0.933 | 1.00 | 0.95 | 0.963 |
+| holdout | 0.30 | 0.90 | 0.80 | 0.850 | 1.00 | 0.80 | 0.900 |
 
 结论：
 
 - BM25 明显强于原来的关键词规则，说明中文切分和 IDF/长度归一化有效。
-- BM25 仍然略低于向量检索：holdout Recall@5 为 0.90，MRR 为 0.850。
+- BM25 仍然略低于向量检索：holdout Recall@5 为 0.90、MRR 为 0.850，而向量是 1.00 / 0.900。
 - BM25 不替代向量主路径，但已接入向量失败/为空时的第一层降级；关键词保留为最后兜底。
 
 ### BM25 + 向量 RRF
@@ -115,7 +115,7 @@ TraceFix 把“报错—原因—修复—验证”整理成结构化案例，�
 
 结论：
 
-- 补入新案例后，BM25 + 向量没有超过纯向量：dev 的 Hit@1 持平但 MRR 更低，test 和 holdout 也没有稳定提升。
+- 扩充并清理案例后，BM25 + 向量没有超过纯向量：dev 的 Hit@1 持平但 MRR 更低，test 和 holdout 也没有稳定提升。
 - 说明之前的轻微优势主要来自旧样本，样本变化后不能复现。
 - 当前不接入主流程；保留为可选检索策略，后续补数据后再验证。
 
@@ -178,7 +178,7 @@ ai/.venv/Scripts/python.exe eval/diagnosis_eval.py --split dev --limit 3
 
 证据门槛 `EVIDENCE_THRESHOLD=0.55` 时，清理后的完整 65 条结果：
 
-| split | cases | DIAGNOSED | citation_hit | fields_ok | helpful | strict | avg_ms | p95_ms |
+| split | cases | DIAGNOSED | citation_hit | fields_complete | helpful | strict | avg_ms | p95_ms |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
 | dev | 25 | 0.520 | 1.000 | 1.000 | 1.000 | 0.520 | 2615 | 3561 |
 | test | 20 | 0.650 | 0.850 | 0.900 | 0.850 | 0.650 | 2234 | 4021 |
@@ -229,7 +229,7 @@ ai/.venv/Scripts/python.exe eval/diagnosis_eval.py --split dev --limit 3
 
 结论：
 
-- dev 持平，test 变差，holdout 变好，整体没有一致提升。
+- dev 和 test 变差，holdout 变好，整体没有一致提升。
 - 关键词检索本身噪声较大，RRF 会把它的错误排名带进融合结果。
 - 关键词经常返回空，所以“关键词 + 向量 RRF”多数时候接近纯向量；BM25 每次都返回 Top5，等权融合时反而更容易把错误候选顶上来。
 - 当前数据量小，暂不把 RRF 接入 `diagnosis_graph`；保留为离线实验和后续优化方向。
@@ -237,7 +237,7 @@ ai/.venv/Scripts/python.exe eval/diagnosis_eval.py --split dev --limit 3
 ## 技术架构
 
 ```text
-浏览器（单页 HTML）
+浏览器（HTML + JS）
    │ HTTP
 Java 主服务（Spring Boot + MyBatis-Plus）
    │  ├─ 案例 / 诊断记录 / 人工确认（MySQL）
@@ -269,7 +269,7 @@ Java 负责业务状态和数据库写入，Python 负责解析、检索和模�
 - 大模型：DeepSeek `deepseek-chat`
 - Embedding：通义 `qwen3.7-text-embedding-flash`，1024 维
 - 向量索引：FAISS `IndexFlatIP`（L2 归一化后等价余弦相似度）
-- 前端：单文件 HTML + JS，同源部署
+- 前端：HTML + JS 多页面（诊断 / 导入 / 审核），同源部署
 - 已做离线实验：RRF
 - 规划中：Redis、RabbitMQ
 
@@ -476,7 +476,7 @@ tracefix/
 
 - `ACTIVE` 案例只有 21 条，评测集只有 65 条，样本规模仍然小。
 - Top1 重排会在生成前增加一次 DeepSeek 调用，平均约 0.9 秒。
-- 端到端评测中仍有 3/65 条被 `assess` 证据门槛拦截，后续需要继续校准低置信度处理。
+- 端到端评测中仍有 3/65 条 `helpful=False`：2 条被 `assess` 证据门槛拦截，1 条引用校验失败。
 - 向量检索在这批数据上 `Recall@5=1.00`，不能直接外推到所有 Java 报错。
 - RRF 已做离线对比，但没有稳定提升，暂未接入主流程。
 - Redis / RabbitMQ 还没有接入。
@@ -523,7 +523,7 @@ tracefix/
 
 **为什么检索是证据层，不是产品本身？**
 
-诊断需要引用历史案例，不能只靠模型记忆；但检索只是“找证据”。指纹精确命中时可以直接返回案例，没有证据时必须明确说信息不足，而不是硬答。
+诊断需要引用历史案例，不能只靠模型记忆；但检索只是“找证据”。指纹可以设计成精确匹配的快速通道，但当前主检索还没有接入指纹匹配；没有证据时必须明确说信息不足，而不是硬答。
 
 ## 开发记录
 
