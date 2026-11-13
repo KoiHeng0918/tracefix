@@ -53,7 +53,7 @@
     <textarea id="confirmedRootCause" placeholder="例如：SSH 隧道未启动"></textarea>
 
     <p class="muted">
-        解决说明：你实际做了什么，让问题消失。
+        解决说明：你实际做了什么，让问题消失。诊断后会用 AI 修复步骤预填，请改成你实际执行的动作。
     </p>
     <textarea id="resolutionNote" placeholder="例如：重新打开 SSH 隧道后恢复"></textarea>
 
@@ -91,12 +91,15 @@
             if (json.data && json.data.ticketId) {
                 document.getElementById('ticketId').value = json.data.ticketId;
             }
-            // 把 AI 返回的根因预填到“真实根因”，没有根因时用标题兜底
+            // 把 AI 返回的根因和修复步骤预填到人工确认区，用户仍可修改
             const diagnosis = json.data && json.data.diagnosis;
             if (diagnosis) {
                 const firstCause = diagnosis.rootCause || diagnosis.title;
                 if (firstCause) {
                     document.getElementById('confirmedRootCause').value = firstCause;
+                }
+                if (diagnosis.fixSteps) {
+                    document.getElementById('resolutionNote').value = diagnosis.fixSteps;
                 }
             }
         } catch (e) {

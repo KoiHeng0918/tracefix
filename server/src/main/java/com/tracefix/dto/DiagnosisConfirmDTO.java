@@ -14,9 +14,11 @@ public class DiagnosisConfirmDTO {
     private Long ticketId;
 
     /** 根因是否正确，由所按的按键决定 */
+    @NotNull(message = "rootCauseCorrect 不可以为空")
     private Boolean rootCauseCorrect;
 
     /** 修复是否有效 */
+    @NotNull(message = "fixEffective 不可以为空")
     private Boolean fixEffective;
 
     /** 人工确认或修正后的根因（可选；AI 正确时可留空） */

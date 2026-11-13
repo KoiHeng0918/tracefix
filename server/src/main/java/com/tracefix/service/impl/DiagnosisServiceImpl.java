@@ -127,8 +127,9 @@ public class DiagnosisServiceImpl implements DiagnosisService {
         //创建ticket对象
         QaDiagnosisTicket ticket = getTicket(dto.getTicketId());
         //判断是不是DIAGNOSED
-        if (!"DIAGNOSED".equals(ticket.getStatus())) {
-            throw new BizException("只有 DIAGNOSED 状态的记录可以确认");
+        if (!"DIAGNOSED".equals(ticket.getStatus())
+                && !"NEED_INFO".equals(ticket.getStatus())) {
+            throw new BizException("只有 DIAGNOSED 或 NEED_INFO 状态的记录可以确认");
         }
         // 根因不对但人工修正后修好了：允许，但必须写清真实根因
         if (Boolean.TRUE.equals(dto.getFixEffective())
