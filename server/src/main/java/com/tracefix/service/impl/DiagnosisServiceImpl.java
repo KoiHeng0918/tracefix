@@ -1,9 +1,11 @@
 package com.tracefix.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.tracefix.client.AiClient;
 import com.tracefix.client.AiDiagnosisResult;
 import com.tracefix.common.BizException;
+import com.tracefix.common.PageResult;
 import com.tracefix.dto.DiagnosisAnalyzeDTO;
 import com.tracefix.dto.DiagnosisConfirmDTO;
 import com.tracefix.entity.QaDiagnosisTicket;
@@ -14,7 +16,6 @@ import org.springframework.stereotype.Service;
 import tools.jackson.databind.ObjectMapper;
 
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
 
 /**
@@ -55,35 +56,40 @@ public class DiagnosisServiceImpl implements DiagnosisService {
         ticket.setIsEval(false);
         qaDiagnosisTicketMapper.insert(ticket);
 
-        // 2. 调用 AI
-        AiDiagnosisResult result = aiClient.diagnose(dto.getInputTrace(), dto.getInputContext());
-
-        // 3. 把 AI 结果拆到工单字段里
-
-        //主要有清洗过的ExtractedException和归一化的ExtractedMessage
-        ticket.setExtractedException(result.getExtractedException());
-        ticket.setExtractedMessage(result.getExtractedMessage());
-
-        //还有匹配到的案例集，类型List<String>的ids
-        if (result.getMatchedCaseIds() != null) {
-        //  String.join(分隔符, 集合) → 返回用分隔符把每个元素连起来的一个字符串
-            ticket.setMatchedCaseIds(String.join(",", result.getMatchedCaseIds()));
-        }
-
-        ticket.setConfidence(result.getConfidence());
-
-        ticket.setFingerprint(result.getFingerprint());
-
-        // missingInfo 为空说明证据足够，可以给诊断；
-        // 否则需要用户补充信息
-        ticket.setStatus(result.getMissingInfo() == null || result.getMissingInfo().isEmpty()
-                ? "DIAGNOSED" : "NEED_INFO");
-
-        // 4. 完整 AI 结果另存一份 JSON，方便以后复盘和评测
+        AiDiagnosisResult result;
         try {
+            // 2. 调用 AI
+            result = aiClient.diagnose(dto.getInputTrace(), dto.getInputContext());
+
+            // 3. 把 AI 结果拆到工单字段里
+
+            // 主要有清洗过的 ExtractedException 和归一化的 ExtractedMessage
+            ticket.setExtractedException(result.getExtractedException());
+            ticket.setExtractedMessage(result.getExtractedMessage());
+
+            // 还有匹配到的案例集，类型 List<String> 的 ids
+            if (result.getMatchedCaseIds() != null) {
+                // String.join(分隔符, 集合) → 返回用分隔符把每个元素连起来的一个字符串
+                ticket.setMatchedCaseIds(String.join(",", result.getMatchedCaseIds()));
+            }
+
+            ticket.setConfidence(result.getConfidence());
+            ticket.setFingerprint(result.getFingerprint());
+
+            // missingInfo 为空说明证据足够，可以给诊断；
+            // 否则需要用户补充信息
+            ticket.setStatus(result.getMissingInfo() == null || result.getMissingInfo().isEmpty()
+                    ? "DIAGNOSED" : "NEED_INFO");
+
+            // 4. 完整 AI 结果另存一份 JSON，方便以后复盘和评测
             ticket.setDiagnosisJson(objectMapper.writeValueAsString(result));
         } catch (Exception e) {
-            throw new BizException(500, "诊断结果序列化失败");
+            // AI 调用或结果序列化失败时，把失败状态写回工单，
+            // 避免工单永远停在 SUBMITTED，同时保留失败原因方便排查。
+            ticket.setStatus("DIAGNOSIS_FAILED");
+            ticket.setDiagnosisJson(buildErrorJson(e));
+            qaDiagnosisTicketMapper.updateById(ticket);
+            throw new BizException(502, "诊断服务暂时不可用，工单已记录，请稍后重试");
         }
 
         qaDiagnosisTicketMapper.updateById(ticket);
@@ -97,13 +103,40 @@ public class DiagnosisServiceImpl implements DiagnosisService {
         return data;
     }
 
-    /** 查询诊断记录列表，按创建时间倒序。 */
+    /** 把异常信息收敛成一条 JSON，避免把完整堆栈写进数据库。 */
+    private String buildErrorJson(Exception e) {
+        String message = e.getMessage();
+        if (message == null || message.isBlank()) {
+            message = e.getClass().getSimpleName();
+        }
+        if (message.length() > 500) {
+            message = message.substring(0, 500);
+        }
+        try {
+            return objectMapper.writeValueAsString(Map.of("error", message));
+        } catch (Exception ignored) {
+            return "{\"error\":\"diagnosis failed\"}";
+        }
+    }
+
+    /**
+     * 分页查询诊断记录，按创建时间倒序。
+     * pageNum 从 1 开始；pageSize 限制在 1~100，避免一次拉取过多数据。
+     */
     @Override
-    public List<QaDiagnosisTicket> listTickets() {
-        return qaDiagnosisTicketMapper.selectList(
-                new LambdaQueryWrapper<QaDiagnosisTicket>()
-                        .orderByDesc(QaDiagnosisTicket::getCreateTime)
-        );
+    public PageResult<QaDiagnosisTicket> listTickets(int pageNum, int pageSize, String status) {
+        int safePageNum = Math.max(pageNum, 1);
+        int safePageSize = Math.min(Math.max(pageSize, 1), 100);
+
+        Page<QaDiagnosisTicket> page = new Page<>(safePageNum, safePageSize);
+        LambdaQueryWrapper<QaDiagnosisTicket> wrapper = new LambdaQueryWrapper<>();
+        if (status != null && !status.isBlank()) {
+            wrapper.eq(QaDiagnosisTicket::getStatus, status.trim().toUpperCase());
+        }
+        wrapper.orderByDesc(QaDiagnosisTicket::getCreateTime);
+
+        qaDiagnosisTicketMapper.selectPage(page, wrapper);
+        return PageResult.of(page);
     }
 
     /** 按 ID 查询一条诊断记录，不存在就抛 404。 */

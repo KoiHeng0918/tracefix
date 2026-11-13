@@ -1,10 +1,10 @@
 package com.tracefix.service;
 
+import com.tracefix.common.PageResult;
 import com.tracefix.dto.DiagnosisAnalyzeDTO;
 import com.tracefix.dto.DiagnosisConfirmDTO;
 import com.tracefix.entity.QaDiagnosisTicket;
 
-import java.util.List;
 import java.util.Map;
 
 /**
@@ -15,8 +15,8 @@ public interface DiagnosisService {
     /** 提交报错并诊断，返回 ticketId 和诊断结果。 */
     Map<String, Object> analyze(DiagnosisAnalyzeDTO dto);
 
-    /** 查询诊断记录列表。 */
-    List<QaDiagnosisTicket> listTickets();
+    /** 分页查询诊断记录，可按状态筛选。 */
+    PageResult<QaDiagnosisTicket> listTickets(int pageNum, int pageSize, String status);
 
     /** 按 ID 查询诊断记录。 */
     QaDiagnosisTicket getTicket(Long id);

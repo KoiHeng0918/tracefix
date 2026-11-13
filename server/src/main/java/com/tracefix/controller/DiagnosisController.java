@@ -25,10 +25,16 @@ public class DiagnosisController {
         return Result.success(diagnosisService.analyze(dto));
     }
 
-    /** 查询本地诊断记录列表。 */
+    /**
+     * 分页查询本地诊断记录。
+     * pageNum 从 1 开始，pageSize 默认 10；status 可选，用于按状态筛选。
+     */
     @GetMapping("/ticket/list")
-    public Result listTickets() {
-        return Result.success(diagnosisService.listTickets());
+    public Result listTickets(
+            @RequestParam(defaultValue = "1") int pageNum,
+            @RequestParam(defaultValue = "10") int pageSize,
+            @RequestParam(required = false) String status) {
+        return Result.success(diagnosisService.listTickets(pageNum, pageSize, status));
     }
 
     /** 按 ID 查看一条诊断记录。 */

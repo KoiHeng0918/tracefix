@@ -294,7 +294,7 @@ Java 负责业务状态和数据库写入，Python 负责解析、检索和模�
 | POST | `/case/review` | 已实现 | 审核案例状态 |
 | POST | `/case/promote` | 已实现 | 已解决工单生成案例草稿 |
 | POST | `/diagnosis/analyze` | 已实现 | 提交报错并诊断；由 `ai.mock` 切换 Mock/Python |
-| GET | `/diagnosis/ticket/list` | 已实现 | 查询诊断记录 |
+| GET | `/diagnosis/ticket/list` | 已实现 | 分页查询诊断记录；参数 `pageNum`、`pageSize`、`status` |
 | GET | `/diagnosis/ticket/detail` | 已实现 | 诊断记录详情 |
 | POST | `/diagnosis/confirm` | 已实现 | 人工确认根因/修复效果 |
 
