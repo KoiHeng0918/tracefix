@@ -70,9 +70,6 @@ public class DiagnosisServiceImpl implements DiagnosisService {
             ticket.setMatchedCaseIds(String.join(",", result.getMatchedCaseIds()));
         }
 
-        String first = result.getMatchedCaseIds().get(0);
-
-
         ticket.setConfidence(result.getConfidence());
 
         ticket.setFingerprint(result.getFingerprint());

@@ -133,6 +133,47 @@ def case_is_complete(case: dict) -> bool:
         if not value or value == "待补充":
             return False
     return True
+
+
+def normalize_confidence(value):
+    """把模型返回的 confidence 统一成 0~1 的数字。"""
+    if isinstance(value, bool):
+        return 0.6
+    if isinstance(value, (int, float)):
+        number = float(value)
+    elif isinstance(value, str):
+        text = value.strip().lower().rstrip("%")
+        mapping = {
+            "high": 0.9,
+            "medium": 0.7,
+            "low": 0.4,
+        }
+        if text in mapping:
+            return mapping[text]
+        try:
+            number = float(text)
+        except ValueError:
+            return 0.6
+    else:
+        return 0.6
+
+    if number > 1:
+        number /= 100
+    return max(0.0, min(number, 1.0))
+
+
+def normalize_list(value):
+    """把模型返回的单个字符串或列表统一成字符串列表。"""
+    if value is None:
+        return []
+    if isinstance(value, list):
+        return [str(item).strip() for item in value if str(item).strip()]
+    if isinstance(value, str):
+        text = value.strip()
+        return [text] if text else []
+    return [str(value).strip()] if str(value).strip() else []
+
+
 def generate(state: DiagnosisState) -> DiagnosisState:
     candidates = state.get("candidates", [])
     if not candidates:
@@ -260,10 +301,10 @@ def generate(state: DiagnosisState) -> DiagnosisState:
         "rootCause": data.get("rootCause") or "",
         "fixSteps": data.get("fixSteps") or "",
         "verification": data.get("verification") or "",
-        "confidence": data.get("confidence", 0.8),
+        "confidence": normalize_confidence(data.get("confidence", 0.8)),
     }
-    state["citations"] = data.get("citations") or []
-    state["missing_info"] = data.get("missingInfo") or []
+    state["citations"] = normalize_list(data.get("citations"))
+    state["missing_info"] = normalize_list(data.get("missingInfo"))
     state["status"] = "NEED_INFO" if state["missing_info"] else "DIAGNOSED"
     return state
 
